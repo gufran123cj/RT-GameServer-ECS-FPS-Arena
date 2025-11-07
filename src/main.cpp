@@ -16,7 +16,7 @@ void signalHandler(int signal) {
 
 int main(int argc, char* argv[]) {
     std::cout << "=== Game Server (FPS-lite / Arena) ===" << std::endl;
-    std::cout << "C++20 | ECS | Authoritative Server" << std::endl;
+    std::cout << "C++17 | ECS | Authoritative Server" << std::endl;
     std::cout << "=====================================" << std::endl;
     
     // Parse arguments

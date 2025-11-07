@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Game Server Build Script
+echo Test Client Build Script
 echo ========================================
 echo.
 
@@ -13,11 +13,10 @@ if not exist "%MINGW_PATH%\g++.exe" (
     exit /b 1
 )
 
-echo Derleme basladi...
+echo Client derleme basladi...
 echo.
 
-REM Tüm kaynak dosyalarını derle
-REM MinGW header uyumluluk flag'leri
+REM Test client'ı derle
 "%MINGW_PATH%\g++.exe" ^
     -std=c++17 ^
     -O3 ^
@@ -35,31 +34,24 @@ REM MinGW header uyumluluk flag'leri
     -Iphysics ^
     -Imatchmaker ^
     -Ianti-cheat-lite ^
-    src\main.cpp ^
-    src\Server.cpp ^
-    ecs\Component.cpp ^
-    ecs\World.cpp ^
+    src\TestClient.cpp ^
     net\Socket.cpp ^
-    net\Snapshot.cpp ^
-    physics\Physics.cpp ^
-    matchmaker\Matchmaker.cpp ^
-    anti-cheat-lite\AntiCheat.cpp ^
-    -o GameServer.exe ^
+    -o TestClient.exe ^
     -lws2_32
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ========================================
-    echo Derleme BASARILI!
+    echo Client derleme BASARILI!
     echo ========================================
     echo.
-    echo Calistirmak icin: GameServer.exe
-    echo Veya: GameServer.exe 7777 60
+    echo Calistirmak icin: TestClient.exe
+    echo Veya: TestClient.exe 127.0.0.1 7777
     echo.
 ) else (
     echo.
     echo ========================================
-    echo Derleme BASARISIZ!
+    echo Client derleme BASARISIZ!
     echo ========================================
     echo.
 )
