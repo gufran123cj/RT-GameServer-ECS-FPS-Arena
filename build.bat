@@ -24,7 +24,9 @@ REM MinGW header uyumluluk flag'leri
     -Wall ^
     -Wextra ^
     -D_MINGW_EXTENSION=__extension__ ^
-    -D__USE_MINGW_ANSI_STDIO=0 ^
+    -D__USE_MINGW_ANSI_STDIO=1 ^
+    -U__STRICT_ANSI__ ^
+    -fpermissive ^
     -I. ^
     -Iinclude ^
     -Iecs ^

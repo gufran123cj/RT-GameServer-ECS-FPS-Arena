@@ -3,11 +3,14 @@
 #include "../include/common/types.hpp"
 #include <string>
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 #include <memory>
 #include <chrono>
 
 namespace game::net {
+
+using std::size_t;
 
 struct Address {
     std::string ip;

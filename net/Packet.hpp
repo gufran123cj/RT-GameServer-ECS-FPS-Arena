@@ -8,6 +8,8 @@
 
 namespace game::net {
 
+using std::size_t;
+
 enum class PacketType : uint8_t {
     CONNECT = 0,
     DISCONNECT,

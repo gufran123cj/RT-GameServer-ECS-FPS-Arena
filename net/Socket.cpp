@@ -15,12 +15,14 @@
 
 namespace game::net {
 
-UDPSocket::UDPSocket() : socketHandle(-1), bound(false) {
+UDPSocket::UDPSocket() : bound(false) {
 #ifdef _WIN32
+    socketHandle = nullptr;
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
-    socketHandle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    socketHandle = reinterpret_cast<void*>(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 #else
+    socketHandle = -1;
     socketHandle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     int flags = fcntl(socketHandle, F_GETFL, 0);
     fcntl(socketHandle, F_SETFL, flags | O_NONBLOCK);
@@ -35,7 +37,11 @@ UDPSocket::~UDPSocket() {
 }
 
 bool UDPSocket::bind(const Address& address) {
+#ifdef _WIN32
+    if (socketHandle == nullptr || socketHandle == reinterpret_cast<void*>(INVALID_SOCKET)) return false;
+#else
     if (socketHandle < 0) return false;
+#endif
     
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -47,7 +53,11 @@ bool UDPSocket::bind(const Address& address) {
         inet_pton(AF_INET, address.ip.c_str(), &addr.sin_addr);
     }
     
+#ifdef _WIN32
+    int result = ::bind(reinterpret_cast<SOCKET>(socketHandle), reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+#else
     int result = ::bind(socketHandle, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+#endif
     if (result == 0) {
         bound = true;
         return true;
@@ -56,28 +66,44 @@ bool UDPSocket::bind(const Address& address) {
 }
 
 bool UDPSocket::send(const Address& to, const void* data, size_t size) {
+#ifdef _WIN32
+    if (!bound || socketHandle == nullptr || socketHandle == reinterpret_cast<void*>(INVALID_SOCKET)) return false;
+#else
     if (!bound || socketHandle < 0) return false;
+#endif
     
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(to.port);
     inet_pton(AF_INET, to.ip.c_str(), &addr.sin_addr);
     
-    int sent = sendto(socketHandle, reinterpret_cast<const char*>(data), 
+#ifdef _WIN32
+    int sent = sendto(reinterpret_cast<SOCKET>(socketHandle), reinterpret_cast<const char*>(data),
+#else
+    int sent = sendto(socketHandle, reinterpret_cast<const char*>(data),
+#endif 
                       static_cast<int>(size), 0,
                       reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
     return sent == static_cast<int>(size);
 }
 
 bool UDPSocket::receive(Packet& packet, int timeoutMs) {
+#ifdef _WIN32
+    if (!bound || socketHandle == nullptr || socketHandle == reinterpret_cast<void*>(INVALID_SOCKET)) return false;
+#else
     if (!bound || socketHandle < 0) return false;
+#endif
     
     sockaddr_in fromAddr{};
     socklen_t fromLen = sizeof(fromAddr);
     
     packet.data.resize(MAX_PACKET_SIZE);
     
-    int received = recvfrom(socketHandle, 
+#ifdef _WIN32
+    int received = recvfrom(reinterpret_cast<SOCKET>(socketHandle),
+#else
+    int received = recvfrom(socketHandle,
+#endif 
                            reinterpret_cast<char*>(packet.data.data()),
                            MAX_PACKET_SIZE, 0,
                            reinterpret_cast<sockaddr*>(&fromAddr), &fromLen);
@@ -99,19 +125,27 @@ bool UDPSocket::receive(Packet& packet, int timeoutMs) {
 }
 
 void UDPSocket::close() {
-    if (socketHandle >= 0) {
 #ifdef _WIN32
-        closesocket(socketHandle);
+    if (socketHandle != nullptr && socketHandle != reinterpret_cast<void*>(INVALID_SOCKET)) {
+        closesocket(reinterpret_cast<SOCKET>(socketHandle));
+        socketHandle = nullptr;
+        bound = false;
+    }
 #else
+    if (socketHandle >= 0) {
         ::close(socketHandle);
-#endif
         socketHandle = -1;
         bound = false;
     }
+#endif
 }
 
 bool UDPSocket::isOpen() const {
+#ifdef _WIN32
+    return socketHandle != nullptr && socketHandle != reinterpret_cast<void*>(INVALID_SOCKET) && bound;
+#else
     return socketHandle >= 0 && bound;
+#endif
 }
 
 } // namespace game::net

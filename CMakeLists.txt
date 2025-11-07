@@ -10,7 +10,10 @@ if(MSVC)
     add_compile_options(/W4 /permissive- /Zc:__cplusplus)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic -O3 -march=native)
+    add_compile_options(-Wall -Wextra -O3 -march=native)
+    add_compile_options(-D__USE_MINGW_ANSI_STDIO=1)
+    add_compile_options(-fext-numeric-literals)
+    add_compile_options(-fpermissive)
 endif()
 
 # Include directories

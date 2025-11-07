@@ -3,13 +3,15 @@
 #include "../include/common/types.hpp"
 #include "Entity.hpp"
 #include "Component.hpp"
-#include "World.hpp"
 #include <bitset>
 #include <vector>
 #include <memory>
 #include <tuple>
 
 namespace game::ecs {
+
+// Forward declaration
+class World;
 
 class System {
 public:
@@ -36,7 +38,14 @@ public:
     
     virtual void process(World& world, float deltaTime, Entity& entity, Components&... components) = 0;
     
-    void update(World& world, float deltaTime) override {
+    void update(World& world, float deltaTime) override;
+};
+
+// Include World.hpp after forward declaration
+#include "World.hpp"
+
+template<typename... Components>
+void SystemBase<Components...>::update(World& world, float deltaTime) {
         auto entityIDs = world.queryEntities<Components...>();
         
         for (EntityID id : entityIDs) {
@@ -44,17 +53,15 @@ public:
             if (!entity) continue;
             
             // Check if all components exist
-            if ((world.getComponent<Components>(id) != nullptr && ...)) {
+            if ((... && (world.getComponent<Components>(id) != nullptr))) {
                 // Get all required components and call process
                 auto processComponents = [&](auto*... comps) {
                     process(world, deltaTime, *entity, *comps...);
                 };
                 processComponents(world.getComponent<Components>(id)...);
             }
-
-        }
     }
-};
+}
 
 } // namespace game::ecs
 

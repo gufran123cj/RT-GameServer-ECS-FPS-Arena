@@ -2,7 +2,6 @@
 
 #include "Entity.hpp"
 #include "Component.hpp"
-#include "System.hpp"
 #include "../include/common/types.hpp"
 #include <vector>
 #include <unordered_map>
@@ -10,6 +9,9 @@
 #include <bitset>
 
 namespace game::ecs {
+
+// Forward declaration (System.hpp will include World.hpp later)
+class System;
 
 class World {
 private:
@@ -80,4 +82,8 @@ public:
 };
 
 } // namespace game::ecs
+
+// Include System.hpp after World class definition to resolve unique_ptr<System>
+// This is safe because System.hpp uses forward declaration for World
+#include "System.hpp"
 
