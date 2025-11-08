@@ -44,6 +44,9 @@ REM Mini Game Viewer'ı derle
     -Icomponents ^
     src\MiniGameViewer.cpp ^
     net\Socket.cpp ^
+    ecs\Component.cpp ^
+    ecs\World.cpp ^
+    physics\Physics.cpp ^
     -o MiniGameViewer.exe ^
     -lws2_32
 

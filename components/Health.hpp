@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../ecs/Component.hpp"
+#include "../net/Packet.hpp"
+#include <cstddef>
 
 namespace game::components {
 
@@ -39,6 +41,19 @@ public:
         health->current = current;
         health->isAlive = isAlive;
         return health;
+    }
+    
+    // Serialization (Phase 4)
+    bool serialize(net::PacketWriter& writer) const override {
+        return writer.write(current) && writer.write(maximum) && writer.write(isAlive);
+    }
+    
+    bool deserialize(net::PacketReader& reader) override {
+        return reader.read(current) && reader.read(maximum) && reader.read(isAlive);
+    }
+    
+    size_t getSerializedSize() const override {
+        return sizeof(float) * 2 + sizeof(bool); // current, maximum, isAlive
     }
 };
 

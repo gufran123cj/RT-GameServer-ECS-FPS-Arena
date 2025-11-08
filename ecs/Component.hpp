@@ -5,6 +5,12 @@
 #include <typeindex>
 #include <unordered_map>
 
+// Forward declarations
+namespace game::net {
+    class PacketWriter;
+    class PacketReader;
+}
+
 namespace game::ecs {
 
 class Component {
@@ -12,6 +18,11 @@ public:
     virtual ~Component() = default;
     virtual ComponentTypeID getTypeID() const = 0;
     virtual std::unique_ptr<Component> clone() const = 0;
+    
+    // Serialization interface (Phase 4)
+    virtual bool serialize(net::PacketWriter& writer) const = 0;
+    virtual bool deserialize(net::PacketReader& reader) = 0;
+    virtual size_t getSerializedSize() const = 0;
 };
 
 // Component type registry

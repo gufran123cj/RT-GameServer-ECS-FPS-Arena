@@ -2,6 +2,8 @@
 
 #include "../ecs/Component.hpp"
 #include "../physics/Physics.hpp"
+#include "../net/Packet.hpp"
+#include <cstddef>
 
 namespace game::components {
 
@@ -31,6 +33,23 @@ public:
         auto transform = std::make_unique<Transform>(position, rotation);
         transform->scale = scale;
         return transform;
+    }
+    
+    // Serialization (Phase 4)
+    bool serialize(net::PacketWriter& writer) const override {
+        return writer.write(position.x) && writer.write(position.y) && writer.write(position.z) &&
+               writer.write(rotation.x) && writer.write(rotation.y) && writer.write(rotation.z) &&
+               writer.write(scale.x) && writer.write(scale.y) && writer.write(scale.z);
+    }
+    
+    bool deserialize(net::PacketReader& reader) override {
+        return reader.read(position.x) && reader.read(position.y) && reader.read(position.z) &&
+               reader.read(rotation.x) && reader.read(rotation.y) && reader.read(rotation.z) &&
+               reader.read(scale.x) && reader.read(scale.y) && reader.read(scale.z);
+    }
+    
+    size_t getSerializedSize() const override {
+        return sizeof(float) * 9; // position(3) + rotation(3) + scale(3)
     }
 };
 

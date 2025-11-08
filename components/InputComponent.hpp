@@ -2,7 +2,9 @@
 
 #include "../ecs/Component.hpp"
 #include "../include/common/types.hpp"
+#include "../net/Packet.hpp"
 #include <cstdint>
+#include <cstddef>
 
 namespace game::components {
 
@@ -63,6 +65,21 @@ public:
         input->sequence = sequence;
         input->inputTick = inputTick;
         return input;
+    }
+    
+    // Serialization (Phase 4)
+    bool serialize(net::PacketWriter& writer) const override {
+        return writer.write(flags) && writer.write(mouseYaw) && writer.write(mousePitch) &&
+               writer.write(sequence) && writer.write(inputTick);
+    }
+    
+    bool deserialize(net::PacketReader& reader) override {
+        return reader.read(flags) && reader.read(mouseYaw) && reader.read(mousePitch) &&
+               reader.read(sequence) && reader.read(inputTick);
+    }
+    
+    size_t getSerializedSize() const override {
+        return sizeof(uint16_t) + sizeof(float) * 2 + sizeof(SequenceNumber) + sizeof(Tick);
     }
 };
 

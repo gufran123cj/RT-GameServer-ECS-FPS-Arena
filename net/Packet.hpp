@@ -80,6 +80,12 @@ public:
     
     size_t remaining() const { return size - offset; }
     size_t getOffset() const { return offset; }
+    size_t getPosition() const { return offset; }
+    void setPosition(size_t pos) { 
+        if (pos <= size) {
+            offset = pos;
+        }
+    }
 };
 
 class PacketWriter {

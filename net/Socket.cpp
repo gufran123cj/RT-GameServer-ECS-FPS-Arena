@@ -39,6 +39,12 @@ UDPSocket::~UDPSocket() {
 bool UDPSocket::bind(const Address& address) {
 #ifdef _WIN32
     if (socketHandle == nullptr || socketHandle == reinterpret_cast<void*>(INVALID_SOCKET)) return false;
+    
+    // Set socket to non-blocking mode on Windows
+    u_long mode = 1; // 1 = non-blocking, 0 = blocking
+    if (ioctlsocket(reinterpret_cast<SOCKET>(socketHandle), FIONBIO, &mode) != 0) {
+        return false;
+    }
 #else
     if (socketHandle < 0) return false;
 #endif
@@ -90,6 +96,9 @@ bool UDPSocket::send(const Address& to, const void* data, size_t size) {
 bool UDPSocket::receive(Packet& packet, int timeoutMs) {
 #ifdef _WIN32
     if (!bound || socketHandle == nullptr || socketHandle == reinterpret_cast<void*>(INVALID_SOCKET)) return false;
+    
+    // Check for WSAEWOULDBLOCK error (non-blocking socket, no data available)
+    WSASetLastError(0);
 #else
     if (!bound || socketHandle < 0) return false;
 #endif
@@ -107,6 +116,17 @@ bool UDPSocket::receive(Packet& packet, int timeoutMs) {
                            reinterpret_cast<char*>(packet.data.data()),
                            MAX_PACKET_SIZE, 0,
                            reinterpret_cast<sockaddr*>(&fromAddr), &fromLen);
+    
+#ifdef _WIN32
+    // Check for WSAEWOULDBLOCK (no data available in non-blocking mode)
+    if (received == SOCKET_ERROR) {
+        int error = WSAGetLastError();
+        if (error == WSAEWOULDBLOCK || error == WSAECONNRESET) {
+            return false; // No data available, not an error
+        }
+        return false; // Other error
+    }
+#endif
     
     if (received > 0) {
         packet.size = received;

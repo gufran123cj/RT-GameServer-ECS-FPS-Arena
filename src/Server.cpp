@@ -37,7 +37,18 @@ bool GameServer::initialize() {
 void GameServer::run() {
     const float fixedDeltaTime = 1.0f / serverTickRate;
     
+    std::cout << "[DEBUG] GameServer::run() started, tickRate=" << serverTickRate 
+              << ", fixedDeltaTime=" << fixedDeltaTime << std::endl;
+    
+    int loopCount = 0;
     while (true) {
+        loopCount++;
+        
+        // Debug: Log first few loop iterations
+        if (loopCount <= 10) {
+            std::cout << "[DEBUG] run() loop iteration #" << loopCount << std::endl;
+        }
+        
         auto currentTime = std::chrono::steady_clock::now();
         auto frameTime = std::chrono::duration<float>(currentTime - lastTickTime).count();
         lastTickTime = currentTime;
@@ -54,9 +65,16 @@ void GameServer::run() {
             updateRooms(fixedDeltaTime);
             serverTick++;
             accumulatedTime -= fixedDeltaTime;
+            
+            if (loopCount <= 10) {
+                std::cout << "[DEBUG] Fixed timestep update: serverTick=" << serverTick << std::endl;
+            }
         }
         
         // Send snapshots
+        if (loopCount <= 10) {
+            std::cout << "[DEBUG] About to call sendSnapshots()..." << std::endl;
+        }
         sendSnapshots();
         
         // Sleep to prevent 100% CPU usage
@@ -169,8 +187,17 @@ void GameServer::updateRooms(float deltaTime) {
 }
 
 void GameServer::sendSnapshots() {
-    // Simple snapshot sending (Phase 3 - will be replaced in Phase 4)
+    // Phase 4: Component-based snapshot serialization
     // Send snapshot to all connected players/viewers from default room (room 0)
+    
+    // Debug: Log function entry (always log first 50 calls)
+    static int functionEntryCount = 0;
+    functionEntryCount++;
+    if (functionEntryCount <= 50) {
+        std::cout << "[DEBUG] >>> sendSnapshots() ENTRY #" << functionEntryCount 
+                  << " at tick " << serverTick << std::endl;
+    }
+    
     Room* defaultRoom = nullptr;
     auto roomIt = rooms.find(0);
     if (roomIt != rooms.end()) {
@@ -178,15 +205,25 @@ void GameServer::sendSnapshots() {
     }
     
     if (!defaultRoom || !defaultRoom->isActive) {
+        // Debug: Log why snapshot is not sent
+        static int debugNoRoomCount = 0;
+        if (debugNoRoomCount < 3) {
+            if (!defaultRoom) {
+                std::cout << "[DEBUG] sendSnapshots: Room 0 not found, rooms.size()=" << rooms.size() << std::endl;
+            } else if (!defaultRoom->isActive) {
+                std::cout << "[DEBUG] sendSnapshots: Room 0 is not active" << std::endl;
+            }
+            debugNoRoomCount++;
+        }
         return; // No default room yet
     }
     
     // Get all player entities in default room
     auto playerEntities = defaultRoom->world.queryEntities<components::PlayerComponent>();
     
-    // Debug: Log room state (only first few times)
+    // Debug: Log room state (always log first 20 times)
     static int debugRoomStateCount = 0;
-    if (debugRoomStateCount < 3) {
+    if (debugRoomStateCount < 20) {
         std::cout << "[DEBUG] sendSnapshots: Room 0 active, " << playerEntities.size() 
                   << " entities, " << players.size() << " connected players" << std::endl;
         debugRoomStateCount++;
@@ -194,17 +231,30 @@ void GameServer::sendSnapshots() {
     
     // Send snapshot to all connected players/viewers (every 10 ticks = ~6 times per second at 60fps)
     static Tick lastSnapshotTick = 0;
-    if (serverTick > 0 && serverTick - lastSnapshotTick < 10) {
-        return; // Throttle snapshot sending (but send on first tick)
+    static bool firstCall = true;
+    
+    // Debug: Log EVERY call to sendSnapshots (for debugging)
+    static int totalCalls = 0;
+    totalCalls++;
+    if (totalCalls <= 20) {
+        std::cout << "[DEBUG] sendSnapshots called #" << totalCalls << " at tick " << serverTick 
+                  << ", players.size()=" << players.size() << ", rooms.size()=" << rooms.size() << std::endl;
     }
+    
+    // Always send on first call, then every 10 ticks
+    if (!firstCall && (serverTick - lastSnapshotTick) < 10) {
+        if (totalCalls <= 20) {
+            std::cout << "[DEBUG] sendSnapshots: Throttled (lastTick=" << lastSnapshotTick 
+                      << ", currentTick=" << serverTick << ", diff=" << (serverTick - lastSnapshotTick) << ")" << std::endl;
+        }
+        return; // Throttle snapshot sending
+    }
+    
+    firstCall = false;
     lastSnapshotTick = serverTick;
     
-    // Debug: Log snapshot attempt
-    static int debugSnapshotAttemptCount = 0;
-    if (debugSnapshotAttemptCount < 5) {
-        std::cout << "[DEBUG] sendSnapshots called at tick " << serverTick 
-                  << ", players.size()=" << players.size() << std::endl;
-        debugSnapshotAttemptCount++;
+    if (totalCalls <= 20) {
+        std::cout << "[DEBUG] sendSnapshots: Proceeding to send snapshot..." << std::endl;
     }
     
     if (players.empty()) {
@@ -236,47 +286,119 @@ void GameServer::sendSnapshots() {
         
         writer.write(header);
         
-        // Write player count
-        uint8_t playerCount = static_cast<uint8_t>(playerEntities.size());
-        writer.write(playerCount);
+        // Phase 4: Component-based snapshot serialization
+        // Write entity count
+        uint8_t entityCount = static_cast<uint8_t>(playerEntities.size());
+        writer.write(entityCount);
         
-        // Write each player's data
+        // Write each entity's data using component serialization
         for (EntityID entityID : playerEntities) {
+            // Write Entity ID
+            writer.write(entityID);
+            
+            // Get components
             auto* pos = defaultRoom->world.getComponent<components::Position>(entityID);
             auto* playerComp = defaultRoom->world.getComponent<components::PlayerComponent>(entityID);
             auto* input = defaultRoom->world.getComponent<components::InputComponent>(entityID);
+            auto* transform = defaultRoom->world.getComponent<components::Transform>(entityID);
+            auto* health = defaultRoom->world.getComponent<components::Health>(entityID);
             
-            if (pos && playerComp) {
-                net::SnapshotPlayerData playerData;
-                playerData.playerID = playerComp->playerID;
-                playerData.x = pos->value.x;
-                playerData.y = pos->value.y;
-                playerData.z = pos->value.z;
-                playerData.yaw = input ? input->mouseYaw : 0.0f;
-                playerData.inputFlags = input ? input->flags : 0;
-                
-                writer.write(playerData);
+            // Count components to serialize (only relevant ones for snapshot)
+            uint8_t componentCount = 0;
+            if (pos) componentCount++;
+            if (playerComp) componentCount++;
+            if (input) componentCount++;
+            if (transform) componentCount++;
+            if (health) componentCount++;
+            
+            writer.write(componentCount);
+            
+            // Serialize each component (Type ID + Size + Data)
+            // Size is needed so viewer can skip unknown components
+            // Debug: Log component type IDs (always log first 20 components)
+            static int debugServerComponentCount = 0;
+            bool shouldLog = (debugServerComponentCount < 20);
+            
+            if (pos) {
+                ComponentTypeID typeID = pos->getTypeID();
+                uint16_t size = static_cast<uint16_t>(pos->getSerializedSize());
+                if (shouldLog) {
+                    std::cout << "[DEBUG SERVER] Serializing Position: typeID=" << typeID 
+                              << ", size=" << size << std::endl;
+                }
+                writer.write(typeID);
+                writer.write(size);
+                pos->serialize(writer);
+            }
+            if (playerComp) {
+                ComponentTypeID typeID = playerComp->getTypeID();
+                uint16_t size = static_cast<uint16_t>(playerComp->getSerializedSize());
+                if (shouldLog) {
+                    std::cout << "[DEBUG SERVER] Serializing PlayerComponent: typeID=" << typeID 
+                              << ", size=" << size << ", playerID=" << playerComp->playerID << std::endl;
+                }
+                writer.write(typeID);
+                writer.write(size);
+                playerComp->serialize(writer);
+            }
+            if (input) {
+                ComponentTypeID typeID = input->getTypeID();
+                uint16_t size = static_cast<uint16_t>(input->getSerializedSize());
+                if (shouldLog) {
+                    std::cout << "[DEBUG SERVER] Serializing InputComponent: typeID=" << typeID 
+                              << ", size=" << size << std::endl;
+                }
+                writer.write(typeID);
+                writer.write(size);
+                input->serialize(writer);
+            }
+            if (transform) {
+                ComponentTypeID typeID = transform->getTypeID();
+                uint16_t size = static_cast<uint16_t>(transform->getSerializedSize());
+                if (shouldLog) {
+                    std::cout << "[DEBUG SERVER] Serializing Transform: typeID=" << typeID 
+                              << ", size=" << size << std::endl;
+                }
+                writer.write(typeID);
+                writer.write(size);
+                transform->serialize(writer);
+            }
+            if (health) {
+                ComponentTypeID typeID = health->getTypeID();
+                uint16_t size = static_cast<uint16_t>(health->getSerializedSize());
+                if (shouldLog) {
+                    std::cout << "[DEBUG SERVER] Serializing Health: typeID=" << typeID 
+                              << ", size=" << size << std::endl;
+                }
+                writer.write(typeID);
+                writer.write(size);
+                health->serialize(writer);
+            }
+            
+            if (shouldLog) {
+                debugServerComponentCount++;
             }
         }
         
         // Send snapshot (even if empty - viewer needs to know there are no players)
         if (writer.getSize() > sizeof(net::PacketHeader)) {
             if (socket->send(player->address, writer.getData(), writer.getSize())) {
-                // Debug: Log snapshot sending (only first few times)
+                // Debug: Log snapshot sending (always log first 10)
                 static int debugSnapshotCount = 0;
-                if (debugSnapshotCount < 3) {
+                if (debugSnapshotCount < 10) {
                     std::cout << "[DEBUG] Snapshot sent to Player " << playerID 
                               << " at " << player->address.ip << ":" << player->address.port
-                              << " (" << (int)playerCount << " players, " << writer.getSize() << " bytes)" << std::endl;
+                              << " (" << (int)entityCount << " entities, " << writer.getSize() << " bytes)" << std::endl;
                     debugSnapshotCount++;
                 }
             } else {
                 std::cout << "[ERROR] Failed to send snapshot to Player " << playerID << std::endl;
             }
         } else {
+            // Debug: Log empty snapshot (always log first few)
             static int debugEmptySnapshotCount = 0;
-            if (debugEmptySnapshotCount < 2) {
-                std::cout << "[DEBUG] Snapshot too small to send (only header)" << std::endl;
+            if (debugEmptySnapshotCount < 5) {
+                std::cout << "[DEBUG] Snapshot too small to send (only header, size=" << writer.getSize() << ")" << std::endl;
                 debugEmptySnapshotCount++;
             }
         }

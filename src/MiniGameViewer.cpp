@@ -1,6 +1,10 @@
 #include "../net/Socket.hpp"
 #include "../net/Packet.hpp"
 #include "../include/common/types.hpp"
+#include "../components/Position.hpp"
+#include "../components/PlayerComponent.hpp"
+#include "../components/InputComponent.hpp"
+#include "../ecs/Component.hpp"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -10,6 +14,7 @@
 
 using namespace game;
 using namespace game::net;
+using namespace game::components;
 
 // Simple player position structure for viewer
 struct PlayerView {
@@ -98,7 +103,10 @@ int main(int argc, char* argv[]) {
         
         // Check for packets from server (longer timeout to catch snapshots)
         Packet packet;
-        while (socket.receive(packet, 100)) {
+        // Try to receive with longer timeout to catch snapshots
+        int receiveAttempts = 0;
+        while (receiveAttempts < 5 && socket.receive(packet, 200)) {
+            receiveAttempts++;
             if (packet.size >= sizeof(PacketHeader)) {
                 PacketReader reader(packet.data.data(), packet.size);
                 PacketHeader recvHeader;
@@ -115,31 +123,154 @@ int main(int argc, char* argv[]) {
                             debugSnapshotReceiveCount++;
                         }
                         
-                        // Read snapshot
-                        uint8_t playerCount = 0;
-                        if (reader.read(playerCount)) {
+                        // Phase 4: Component-based snapshot deserialization
+                        uint8_t entityCount = 0;
+                        if (reader.read(entityCount)) {
                             if (debugSnapshotReceiveCount <= 3) {
-                                std::cout << "[DEBUG] Snapshot contains " << (int)playerCount << " players" << std::endl;
+                                std::cout << "[DEBUG] Snapshot contains " << (int)entityCount << " entities" << std::endl;
                             }
                             
                             players.clear();
-                            players.reserve(playerCount);
+                            players.reserve(entityCount);
                             
-                            for (uint8_t i = 0; i < playerCount; i++) {
-                                SnapshotPlayerData playerData;
-                                if (reader.read(playerData)) {
-                                    PlayerView view;
-                                    view.id = playerData.playerID;
-                                    view.x = playerData.x;
-                                    view.y = playerData.y;
-                                    view.z = playerData.z;
-                                    view.yaw = playerData.yaw;
-                                    view.inputFlags = playerData.inputFlags;
+                            for (uint8_t i = 0; i < entityCount; i++) {
+                                EntityID entityID = INVALID_ENTITY;
+                                if (!reader.read(entityID)) {
+                                    std::cout << "[ERROR] Failed to read entity ID!" << std::endl;
+                                    break;
+                                }
+                                
+                                uint8_t componentCount = 0;
+                                if (!reader.read(componentCount)) {
+                                    std::cout << "[ERROR] Failed to read component count!" << std::endl;
+                                    break;
+                                }
+                                
+                                // Deserialize components
+                                PlayerView view;
+                                view.id = INVALID_PLAYER;
+                                
+                                for (uint8_t j = 0; j < componentCount; j++) {
+                                    ComponentTypeID typeID = 0;
+                                    if (!reader.read(typeID)) {
+                                        std::cout << "[ERROR] Failed to read component type ID!" << std::endl;
+                                        break;
+                                    }
+                                    
+                                    // Read component size (needed to skip unknown components)
+                                    uint16_t componentSize = 0;
+                                    if (!reader.read(componentSize)) {
+                                        std::cout << "[ERROR] Failed to read component size!" << std::endl;
+                                        break;
+                                    }
+                                    
+                                    // Store current reader position (start of component data)
+                                    // This is after typeID and size have been read
+                                    size_t componentDataStart = reader.getOffset();
+                                    
+                                    // Debug: Log component type IDs (always log first 20 components)
+                                    static int debugComponentTypeCount = 0;
+                                    if (debugComponentTypeCount < 20) {
+                                        std::cout << "[DEBUG VIEWER] Entity " << (int)i << " Component " << (int)j 
+                                                  << ": typeID=" << typeID 
+                                                  << " (Position=" << Position::getStaticTypeID()
+                                                  << ", Player=" << PlayerComponent::getStaticTypeID()
+                                                  << ", Input=" << InputComponent::getStaticTypeID()
+                                                  << "), size=" << componentSize << std::endl;
+                                        debugComponentTypeCount++;
+                                    }
+                                    
+                                    // Deserialize based on component type
+                                    bool deserialized = false;
+                                    size_t expectedEndPos = componentDataStart + componentSize;
+                                    
+                                    if (typeID == Position::getStaticTypeID()) {
+                                        Position pos;
+                                        if (pos.deserialize(reader)) {
+                                            view.x = pos.value.x;
+                                            view.y = pos.value.y;
+                                            view.z = pos.value.z;
+                                            deserialized = true;
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[DEBUG] Position deserialized: (" << view.x << ", " << view.y << ", " << view.z << ")" << std::endl;
+                                            }
+                                        } else {
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[ERROR] Position deserialization failed! Expected size=" << componentSize 
+                                                          << ", actual read=" << (reader.getOffset() - componentDataStart) << std::endl;
+                                            }
+                                        }
+                                    } else if (typeID == PlayerComponent::getStaticTypeID()) {
+                                        PlayerComponent playerComp;
+                                        if (playerComp.deserialize(reader)) {
+                                            view.id = playerComp.playerID;
+                                            deserialized = true;
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[DEBUG] PlayerComponent deserialized: playerID=" << view.id << std::endl;
+                                            }
+                                        } else {
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[ERROR] PlayerComponent deserialization failed! Expected size=" << componentSize 
+                                                          << ", actual read=" << (reader.getOffset() - componentDataStart) << std::endl;
+                                            }
+                                        }
+                                    } else if (typeID == InputComponent::getStaticTypeID()) {
+                                        InputComponent input;
+                                        if (input.deserialize(reader)) {
+                                            view.yaw = input.mouseYaw;
+                                            view.inputFlags = input.flags;
+                                            deserialized = true;
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[DEBUG] InputComponent deserialized: yaw=" << view.yaw 
+                                                          << ", flags=" << view.inputFlags << std::endl;
+                                            }
+                                        } else {
+                                            if (debugComponentTypeCount <= 20) {
+                                                std::cout << "[ERROR] InputComponent deserialization failed! Expected size=" << componentSize 
+                                                          << ", actual read=" << (reader.getOffset() - componentDataStart) << std::endl;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Always ensure reader is at the correct position after deserialization
+                                    // This handles both successful and failed deserialization
+                                    size_t currentPos = reader.getOffset();
+                                    if (currentPos != expectedEndPos) {
+                                        if (debugComponentTypeCount <= 20) {
+                                            std::cout << "[DEBUG] Reader position mismatch! Expected=" << expectedEndPos 
+                                                      << ", actual=" << currentPos << ", adjusting..." << std::endl;
+                                        }
+                                        reader.setPosition(expectedEndPos);
+                                    }
+                                    
+                                    // If component was not deserialized (unknown type), log it
+                                    if (!deserialized) {
+                                        // Debug: Log unknown component (only first few times)
+                                        static int debugUnknownComponentCount = 0;
+                                        if (debugUnknownComponentCount < 10) {
+                                            std::cout << "[DEBUG] Skipped component type " << typeID 
+                                                      << " (size=" << componentSize << " bytes)" << std::endl;
+                                            debugUnknownComponentCount++;
+                                        }
+                                    }
+                                }
+                                
+                                // Debug: Log view state after deserializing all components
+                                static int debugViewStateCount = 0;
+                                if (debugViewStateCount < 5) {
+                                    std::cout << "[DEBUG] Entity " << (int)i << " view: id=" << view.id 
+                                              << " (INVALID=" << INVALID_PLAYER << "), pos=(" 
+                                              << view.x << ", " << view.y << ", " << view.z << ")" << std::endl;
+                                    debugViewStateCount++;
+                                }
+                                
+                                // Only add if we have valid player ID
+                                if (view.id != INVALID_PLAYER) {
                                     players.push_back(view);
                                 }
                             }
                         } else {
-                            std::cout << "[ERROR] Failed to read player count from snapshot!" << std::endl;
+                            std::cout << "[ERROR] Failed to read entity count from snapshot!" << std::endl;
                         }
                     } else if (recvHeader.type == PacketType::CONNECT) {
                         // Server acknowledged connection
@@ -158,10 +289,11 @@ int main(int argc, char* argv[]) {
         
         // Render map every second (or immediately on first run)
         if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastRender).count() >= 1000) {
-            // Clear screen and render
-            #ifdef _WIN32
-            system("cls");
-            #endif
+            // Don't clear screen - keep debug logs visible
+            // #ifdef _WIN32
+            // system("cls");
+            // #endif
+            std::cout << "\n\n"; // Just add some spacing
             
             std::cout << "========================================" << std::endl;
             std::cout << "=== MINI GAME - ASCII MAP VIEWER ===" << std::endl;
