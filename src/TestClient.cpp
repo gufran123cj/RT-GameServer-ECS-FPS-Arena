@@ -1,11 +1,13 @@
 #include "../net/Socket.hpp"
 #include "../net/Packet.hpp"
+#include "../components/InputComponent.hpp"
 #include <iostream>
 #include <thread>
 #include <chrono>
 
 using namespace game;
 using namespace game::net;
+using namespace game::components;
 
 int main(int argc, char* argv[]) {
     std::cout << "=== Test Client ===" << std::endl;
@@ -46,59 +48,69 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Yanıt bekle (5 saniye timeout)
-    std::cout << "Waiting for server response..." << std::endl;
-    Packet response;
-    bool received = false;
+    // Kısa bir bekleme (server'ın işlemesi için)
+    std::cout << "Waiting 500ms for server to process connection..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
-    for (int i = 0; i < 50; ++i) { // 50 * 100ms = 5 saniye
-        if (socket.receive(response, 100)) {
-            if (response.size >= sizeof(PacketHeader)) {
-                PacketReader reader(response.data.data(), response.size);
-                PacketHeader responseHeader;
-                if (reader.read(responseHeader)) {
-                    std::cout << "Received packet from server:" << std::endl;
-                    std::cout << "  Type: " << static_cast<int>(responseHeader.type) << std::endl;
-                    std::cout << "  Player ID: " << responseHeader.playerID << std::endl;
-                    std::cout << "  Server Tick: " << responseHeader.serverTick << std::endl;
-                    received = true;
-                    break;
-                }
-            }
-        }
-    }
+    // Response beklemeden devam et (server response göndermiyor şu an)
+    // Player ID'yi 0 olarak varsay (ilk player)
+    PlayerID playerID = 0;
+    std::cout << "Assuming Player ID: " << playerID << " (server will assign on connect)" << std::endl;
     
-    if (!received) {
-        std::cout << "No response from server (this is normal - server may not send response yet)" << std::endl;
-    }
-    
-    // Heartbeat gönder (test için)
-    std::cout << "\nSending heartbeat packets every 2 seconds..." << std::endl;
+    // PHASE 2 TEST: Send INPUT packets
+    std::cout << "\n=== PHASE 2 TEST: Sending INPUT packets ===" << std::endl;
+    std::cout << "Sending input packets every 100ms (10 packets/sec)" << std::endl;
     std::cout << "Press Ctrl+C to stop" << std::endl;
     
-    header.type = PacketType::HEARTBEAT;
+    header.type = PacketType::INPUT;
+    header.playerID = playerID;
     uint32_t sequence = 1;
     
+    // Simulate different input states
+    uint16_t inputFlags = 0;
+    float mouseYaw = 0.0f;
+    float mousePitch = 0.0f;
+    
     while (true) {
+        // Simulate input: Forward + Right movement, rotating camera
+        inputFlags = INPUT_FORWARD | INPUT_RIGHT;
+        mouseYaw += 1.0f; // Rotate camera
+        mousePitch = 0.0f;
+        
+        // Create INPUT packet
         header.sequence = sequence++;
-        if (socket.send(serverAddress, &header, sizeof(header))) {
-            std::cout << "Heartbeat #" << sequence - 1 << " sent" << std::endl;
+        header.serverTick = 0; // Will be set by server
+        
+        InputPacket inputPacket;
+        inputPacket.flags = inputFlags;
+        inputPacket.mouseYaw = mouseYaw;
+        inputPacket.mousePitch = mousePitch;
+        
+        // Send packet: Header + InputPacket
+        PacketWriter writer;
+        writer.write(header);
+        writer.write(inputPacket);
+        
+        if (socket.send(serverAddress, writer.getData(), writer.getSize())) {
+            if (sequence % 10 == 0) { // Print every 10 packets
+                std::cout << "[INPUT #" << sequence - 1 << "] flags=" << inputFlags 
+                          << " yaw=" << mouseYaw << " pitch=" << mousePitch << std::endl;
+            }
         }
         
-        // Yanıt kontrol et
+        // Check for responses
         Packet packet;
-        if (socket.receive(packet, 100)) {
+        if (socket.receive(packet, 10)) {
             if (packet.size >= sizeof(PacketHeader)) {
                 PacketReader reader(packet.data.data(), packet.size);
                 PacketHeader recvHeader;
                 if (reader.read(recvHeader)) {
-                    std::cout << "  -> Received response: Type=" 
-                              << static_cast<int>(recvHeader.type) << std::endl;
+                    // Handle response if needed
                 }
             }
         }
         
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 10 packets/sec
     }
     
     socket.close();

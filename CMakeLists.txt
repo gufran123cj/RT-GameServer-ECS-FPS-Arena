@@ -24,6 +24,8 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/physics
     ${CMAKE_SOURCE_DIR}/matchmaker
     ${CMAKE_SOURCE_DIR}/anti-cheat-lite
+    ${CMAKE_SOURCE_DIR}/components
+    ${CMAKE_SOURCE_DIR}/systems
 )
 
 # Source files

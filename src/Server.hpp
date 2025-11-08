@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../ecs/World.hpp"
+#include "../ecs/Entity.hpp"
 #include "../net/Socket.hpp"
+#include "../net/Packet.hpp"
 #include "../include/common/types.hpp"
 #include <unordered_map>
 #include <memory>
@@ -54,6 +56,9 @@ private:
     void updateRooms(float deltaTime);
     void sendSnapshots();
     Room* getOrCreateRoom(RoomID roomID);
+    EntityID createPlayerEntity(Room* room, PlayerID playerID);
+    void processInputPacket(Player* player, net::PacketReader& reader, SequenceNumber sequence);
+    EntityID getPlayerEntity(Room* room, PlayerID playerID);
 
 public:
     GameServer(const std::string& bindIP, uint16_t port, int tickRate = DEFAULT_TICK_RATE);

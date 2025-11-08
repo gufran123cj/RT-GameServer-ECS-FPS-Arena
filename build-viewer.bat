@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo Game Server Build Script
+echo Mini Game Viewer Build Script
 echo ========================================
 echo.
 
@@ -13,11 +13,17 @@ if not exist "%MINGW_PATH%\g++.exe" (
     exit /b 1
 )
 
-echo Derleme basladi...
+echo Viewer derleme basladi...
 echo.
 
-REM Tüm kaynak dosyalarını derle
-REM MinGW header uyumluluk flag'leri
+REM Eğer MiniGameViewer.exe çalışıyorsa kapat
+taskkill /F /IM MiniGameViewer.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo MiniGameViewer.exe kapatildi.
+    timeout /t 1 /nobreak >nul
+)
+
+REM Mini Game Viewer'ı derle
 "%MINGW_PATH%\g++.exe" ^
     -std=c++17 ^
     -O3 ^
@@ -36,32 +42,24 @@ REM MinGW header uyumluluk flag'leri
     -Imatchmaker ^
     -Ianti-cheat-lite ^
     -Icomponents ^
-    -Isystems ^
-    src\main.cpp ^
-    src\Server.cpp ^
-    ecs\Component.cpp ^
-    ecs\World.cpp ^
+    src\MiniGameViewer.cpp ^
     net\Socket.cpp ^
-    net\Snapshot.cpp ^
-    physics\Physics.cpp ^
-    matchmaker\Matchmaker.cpp ^
-    anti-cheat-lite\AntiCheat.cpp ^
-    -o GameServer.exe ^
+    -o MiniGameViewer.exe ^
     -lws2_32
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ========================================
-    echo Derleme BASARILI!
+    echo Viewer derleme BASARILI!
     echo ========================================
     echo.
-    echo Calistirmak icin: GameServer.exe
-    echo Veya: GameServer.exe 7777 60
+    echo Calistirmak icin: MiniGameViewer.exe
+    echo Veya: MiniGameViewer.exe 127.0.0.1 7777
     echo.
 ) else (
     echo.
     echo ========================================
-    echo Derleme BASARISIZ!
+    echo Viewer derleme BASARISIZ!
     echo ========================================
     echo.
 )

@@ -16,6 +16,13 @@ if not exist "%MINGW_PATH%\g++.exe" (
 echo Client derleme basladi...
 echo.
 
+REM Eğer TestClient.exe çalışıyorsa kapat
+taskkill /F /IM TestClient.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo TestClient.exe kapatildi.
+    timeout /t 1 /nobreak >nul
+)
+
 REM Test client'ı derle
 "%MINGW_PATH%\g++.exe" ^
     -std=c++17 ^
@@ -34,6 +41,7 @@ REM Test client'ı derle
     -Iphysics ^
     -Imatchmaker ^
     -Ianti-cheat-lite ^
+    -Icomponents ^
     src\TestClient.cpp ^
     net\Socket.cpp ^
     -o TestClient.exe ^

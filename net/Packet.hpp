@@ -30,6 +30,30 @@ struct PacketHeader {
     PacketHeader() : type(PacketType::HEARTBEAT), sequence(0), serverTick(0), playerID(INVALID_PLAYER) {}
 };
 
+// Input packet structure (sent after PacketHeader)
+struct InputPacket {
+    uint16_t flags;      // Input flags (bitmask)
+    float mouseYaw;      // Mouse horizontal rotation
+    float mousePitch;    // Mouse vertical rotation
+    
+    InputPacket() : flags(0), mouseYaw(0.0f), mousePitch(0.0f) {}
+};
+
+// Simple snapshot packet structure (for Phase 3 - will be replaced in Phase 4)
+struct SimpleSnapshotPacket {
+    uint8_t playerCount;  // Number of players in snapshot
+    
+    SimpleSnapshotPacket() : playerCount(0) {}
+};
+
+// Player data in snapshot
+struct SnapshotPlayerData {
+    PlayerID playerID;
+    float x, y, z;        // Position
+    float yaw;            // Rotation
+    uint16_t inputFlags;  // Current input flags
+};
+
 class PacketReader {
 private:
     const uint8_t* data;
