@@ -5,7 +5,8 @@
 using namespace game;
 
 static GameServer* g_server = nullptr;
-
+//https://www.sfml-dev.org/tutorials/3.0/getting-started/visual-studio/#creating-and-configuring-an-sfml-project
+//https://www.raylib.com
 void signalHandler(int signal) {
     if (g_server) {
         std::cout << "\nShutting down server..." << std::endl;

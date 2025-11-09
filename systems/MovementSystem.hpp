@@ -11,87 +11,91 @@
 namespace game::systems {
 
 // Movement System - Converts input to velocity and updates position
-class MovementSystem : public ecs::SystemBase<components::InputComponent, components::Velocity, components::Position, components::Transform> {
+class MovementSystem
+  : public ecs::SystemBase<
+        components::InputComponent,
+        components::Velocity,
+        components::Position,
+        components::Transform> {
 private:
     const float MOVE_SPEED = 5.0f;        // Units per second
-    const float SPRINT_MULTIPLIER = 1.5f; // Sprint speed multiplier
-    const float MAX_SPEED = 10.0f;        // Maximum movement speed
+    const float SPRINT_MULTIPLIER = 1.5f;  // Sprint speed multiplier
+    const float MAX_SPEED = 10.0f;         // Maximum movement speed
+
+    static constexpr float DEG2RAD = 3.1415926535f / 180.0f;
 
 public:
     MovementSystem() = default;
-    
+
     int getPriority() const override {
-        return 10; // Early priority - movement should happen before other systems
+        // Movement önce çalışsın
+        return 10;
     }
-    
-    void process(ecs::World& world, float deltaTime, ecs::Entity& entity, 
-                 components::InputComponent& input, 
+
+    void process(ecs::World& /*world*/, float deltaTime, ecs::Entity& /*entity*/,
+                 components::InputComponent& input,
                  components::Velocity& velocity,
                  components::Position& position,
-                 components::Transform& transform) override {
+                 components::Transform& transform) override
+    {
+        // Top-down 2D: Sadece X (sağ-sol) ve Z (ileri-geri) kullanıyoruz
+        // X: sağ = pozitif, sol = negatif
+        // Z: ileri (yukarı) = pozitif, geri (aşağı) = negatif
         
-        // Convert input flags to movement direction
-        physics::Vec3 moveDirection(0.0f, 0.0f, 0.0f);
+        // 1) Yerel hareket yönü (player'ın baktığı yöne göre)
+        float moveForward = 0.0f;  // İleri-geri (W/S)
+        float moveRight = 0.0f;    // Sağ-sol (A/D)
         
-        // Forward/Backward (W/S)
-        if (input.isPressed(components::INPUT_FORWARD)) {
-            moveDirection.z += 1.0f;
-        }
-        if (input.isPressed(components::INPUT_BACKWARD)) {
-            moveDirection.z -= 1.0f;
-        }
-        
-        // Left/Right (A/D) - strafe
-        if (input.isPressed(components::INPUT_LEFT)) {
-            moveDirection.x -= 1.0f;
-        }
-        if (input.isPressed(components::INPUT_RIGHT)) {
-            moveDirection.x += 1.0f;
-        }
-        
-        // Normalize movement direction
-        if (moveDirection.lengthSq() > 0.0f) {
-            moveDirection = moveDirection.normalized();
-            
-            // Apply rotation (yaw) to movement direction
-            float yawRad = input.mouseYaw * (3.14159f / 180.0f); // Convert to radians
-            float cosYaw = cosf(yawRad);
-            float sinYaw = sinf(yawRad);
-            
-            // Rotate movement vector by yaw
-            float newX = moveDirection.x * cosYaw - moveDirection.z * sinYaw;
-            float newZ = moveDirection.x * sinYaw + moveDirection.z * cosYaw;
-            moveDirection.x = newX;
-            moveDirection.z = newZ;
-            
-            // Calculate speed (with sprint multiplier)
-            float speed = MOVE_SPEED;
-            if (input.isPressed(components::INPUT_SPRINT)) {
-                speed *= SPRINT_MULTIPLIER;
-            }
-            
-            // Set velocity
-            velocity.value = moveDirection * speed;
+        if (input.isPressed(components::INPUT_FORWARD))  moveForward += 1.0f;  // W = ileri
+        if (input.isPressed(components::INPUT_BACKWARD)) moveForward -= 1.0f;  // S = geri
+        if (input.isPressed(components::INPUT_RIGHT))    moveRight += 1.0f;    // D = sağ
+        if (input.isPressed(components::INPUT_LEFT))     moveRight -= 1.0f;    // A = sol
+
+        if (moveForward != 0.0f || moveRight != 0.0f) {
+            // Normalize (çapraz hareket için)
+            float len = std::sqrt(moveForward * moveForward + moveRight * moveRight);
+            moveForward /= len;
+            moveRight /= len;
+
+            // 2) Yaw açısına göre döndür (basit 2D rotation)
+            // Client'ta yaw 90° başlıyor (yukarı bakıyor)
+            // Yaw 90° = forward (0, 1) olmalı
+            // Yaw 0° = sağa (1, 0) olmalı
+            float adjustedYaw = input.mouseYaw - 90.0f; // 90° offset
+            float yawRad = adjustedYaw * DEG2RAD;
+            float c = std::cos(yawRad);
+            float s = std::sin(yawRad);
+
+            // Basit 2D rotation: (forward, right) -> (worldX, worldZ)
+            // forward = (0, 1) yerel, right = (1, 0) yerel
+            float worldX = moveRight * c - moveForward * s;  // Sağ-sol
+            float worldZ = moveRight * s + moveForward * c;  // İleri-geri
+
+            // 3) Hız uygula (sprint dahil)
+            float speed = MOVE_SPEED * (input.isPressed(components::INPUT_SPRINT) ? SPRINT_MULTIPLIER : 1.0f);
+            velocity.value.x = worldX * speed;
+            velocity.value.y = 0.0f;
+            velocity.value.z = worldZ * speed;
         } else {
-            // No input - apply friction (gradual stop)
-            velocity.value = velocity.value * 0.8f; // Friction factor
+            // 4) Giriş yoksa sürtünme ile yavaşlat
+            velocity.value = velocity.value * 0.8f;
             if (velocity.value.lengthSq() < 0.01f) {
                 velocity.value = physics::Vec3(0.0f, 0.0f, 0.0f);
             }
         }
-        
-        // Clamp velocity to max speed
-        float currentSpeed = velocity.value.length();
-        if (currentSpeed > MAX_SPEED) {
+
+        // 5) Maksimum hız limiti
+        float vlen = velocity.value.length();
+        if (vlen > MAX_SPEED) {
             velocity.value = velocity.value.normalized() * MAX_SPEED;
         }
-        
-        // Update position based on velocity
+
+        // 6) Konumu güncelle
         position.value = position.value + (velocity.value * deltaTime);
-        
-        // Update transform component to match position
+
+        // 7) Transform senkronu
         transform.position = position.value;
-        transform.rotation.y = input.mouseYaw; // Update rotation from input
+        transform.rotation.y = input.mouseYaw;
     }
 };
 
