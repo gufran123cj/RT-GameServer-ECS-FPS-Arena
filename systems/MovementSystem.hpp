@@ -7,6 +7,8 @@
 #include "../components/Transform.hpp"
 #include "../physics/Physics.hpp"
 #include <cmath>
+#include <iostream>
+#include <iomanip>
 
 namespace game::systems {
 
@@ -38,9 +40,9 @@ public:
                  components::Position& position,
                  components::Transform& transform) override
     {
-        // Top-down 2D: Sadece X (sağ-sol) ve Z (ileri-geri) kullanıyoruz
+        // Top-down 2D: X (sağ-sol) ve Y (ileri-geri) kullanıyoruz
         // X: sağ = pozitif, sol = negatif
-        // Z: ileri (yukarı) = pozitif, geri (aşağı) = negatif
+        // Y: ileri (yukarı) = pozitif, geri (aşağı) = negatif
         
         // 1) Yerel hareket yönü (player'ın baktığı yöne göre)
         float moveForward = 0.0f;  // İleri-geri (W/S)
@@ -50,6 +52,18 @@ public:
         if (input.isPressed(components::INPUT_BACKWARD)) moveForward -= 1.0f;  // S = geri
         if (input.isPressed(components::INPUT_RIGHT))    moveRight += 1.0f;    // D = sağ
         if (input.isPressed(components::INPUT_LEFT))     moveRight -= 1.0f;    // A = sol
+
+        // DEBUG: Input durumu
+        static int debugCounter = 0;
+        if (moveForward != 0.0f || moveRight != 0.0f || (debugCounter++ % 60 == 0)) {
+            std::cout << "\n[MOVEMENT DEBUG] " << std::fixed << std::setprecision(2)
+                      << "Yaw: " << input.mouseYaw << "° | "
+                      << "Forward: " << moveForward << " | "
+                      << "Right: " << moveRight << " | "
+                      << "Pos: (" << position.value.x << ", " << position.value.y << ", " << position.value.z << ") | "
+                      << "Vel: (" << velocity.value.x << ", " << velocity.value.y << ", " << velocity.value.z << ")"
+                      << std::endl;
+        }
 
         if (moveForward != 0.0f || moveRight != 0.0f) {
             // Normalize (çapraz hareket için)
@@ -61,21 +75,26 @@ public:
             // Client'ta yaw 90° başlıyor (yukarı bakıyor)
             // Yaw 90° = forward (0, 1) olmalı
             // Yaw 0° = sağa (1, 0) olmalı
-            float adjustedYaw = input.mouseYaw - 90.0f; // 90° offset
+            float adjustedYaw = input.mouseYaw + 90.0f; // 90° offset
             float yawRad = adjustedYaw * DEG2RAD;
             float c = std::cos(yawRad);
             float s = std::sin(yawRad);
 
-            // Basit 2D rotation: (forward, right) -> (worldX, worldZ)
+            // Basit 2D rotation: (forward, right) -> (worldX, worldY)
             // forward = (0, 1) yerel, right = (1, 0) yerel
             float worldX = moveRight * c - moveForward * s;  // Sağ-sol
-            float worldZ = moveRight * s + moveForward * c;  // İleri-geri
+            float worldY = moveRight * s + moveForward * c;  // İleri-geri
+
+            // DEBUG: Rotation sonrası
+            std::cout << "[ROTATION] adjustedYaw: " << adjustedYaw << "° | "
+                      << "cos: " << c << " | sin: " << s << " | "
+                      << "worldX: " << worldX << " | worldY: " << worldY << std::endl;
 
             // 3) Hız uygula (sprint dahil)
             float speed = MOVE_SPEED * (input.isPressed(components::INPUT_SPRINT) ? SPRINT_MULTIPLIER : 1.0f);
             velocity.value.x = worldX * speed;
-            velocity.value.y = 0.0f;
-            velocity.value.z = worldZ * speed;
+            velocity.value.y = worldY * speed;  // Y eksenini kullan
+            velocity.value.z = 0.0f;  // Z eksenini kullanma
         } else {
             // 4) Giriş yoksa sürtünme ile yavaşlat
             velocity.value = velocity.value * 0.8f;
