@@ -2,9 +2,9 @@
 
 A real-time authoritative game server built with C++17, featuring an ECS (Entity Component System) architecture. Provides a foundation for FPS-style or arena-type games.
 
-![Server and Client Connection](images/server-client-connection.png)
+![Multiplayer Game Screen](images/mp_screen.png)
 
-*Example of server and test client connection*
+*Top-down 2D multiplayer game view with Raylib client*
 
 ## 🎮 Features
 
@@ -13,10 +13,14 @@ A real-time authoritative game server built with C++17, featuring an ECS (Entity
 - ✅ **Room-based** server - Multiple game room support
 - ✅ **60/120 tick** server loop - High-performance real-time simulation
 - ✅ **Physics** layer - BVH spatial partitioning with collision detection
-- ✅ **Matchmaker** - Rating-based game matching system
-- ✅ **Anti-cheat-lite** - Basic cheat prevention controls
-- ✅ **Snapshot** management - Infrastructure ready for delta compression
-- ✅ **Test Client** - Simple client for testing server connections
+- ✅ **Matchmaking** - Simple queue-based player matching system
+- ✅ **Anti-cheat-lite** - Basic cheat prevention controls (packet rate limiting, movement validation)
+- ✅ **Snapshot** serialization - Component-based snapshot system
+- ✅ **2D Game Client** - Raylib-based top-down 2D visualization
+- ✅ **150x150 Map** - Large game world with static obstacles and walls
+- ✅ **Multiplayer Support** - Multiple players can connect and play simultaneously
+- ✅ **Random Spawn System** - Players spawn at random locations with collision prevention
+- ⏳ Delta compression (TODO)
 - ⏳ Lag compensation (TODO)
 - ⏳ Rollback/rewind (TODO)
 - ⏳ Deterministic simulation (TODO)
@@ -46,9 +50,26 @@ Real-Time Game Server + ECS (FPS-lite  Arena)/
 ├── src/
 │   ├── Server.hpp/cpp         # Main server class
 │   ├── main.cpp               # Server entry point
-│   └── TestClient.cpp         # Test client
+│   ├── GameClient.cpp         # Raylib 2D game client
+│   ├── TestClient.cpp         # Test client
+│   └── MiniGameViewer.cpp     # ASCII map viewer
+├── components/
+│   ├── Position.hpp           # Position component
+│   ├── Velocity.hpp           # Velocity component
+│   ├── Health.hpp             # Health component
+│   ├── PlayerComponent.hpp    # Player identification
+│   ├── InputComponent.hpp     # Player input
+│   ├── Transform.hpp          # Transform component
+│   └── CollisionComponent.hpp # Collision bounds
+├── systems/
+│   ├── MovementSystem.hpp     # Player movement system
+│   └── PhysicsSystem.hpp      # Physics and collision system
 ├── build.bat                  # Server build script
 ├── build-client.bat           # Client build script
+├── build-gameclient.bat       # Game client build script
+├── start-server.bat           # Server starter with IP display
+├── get-server-ip.bat          # IP address finder
+├── NETWORK_SETUP.md           # Network configuration guide
 └── README.md
 ```
 
@@ -78,14 +99,30 @@ cd "D:\Real-Time Game Server + ECS (FPS-lite  Arena)"
 
 This will create the `GameServer.exe` executable.
 
-### Building the Client
+### Building the Game Client (Raylib 2D Client)
 
 1. Navigate to the project directory:
 ```bash
 cd "D:\Real-Time Game Server + ECS (FPS-lite  Arena)"
 ```
 
-2. Run `build-client.bat` to build the client:
+2. Run `build-gameclient.bat` to build the 2D game client:
+```bash
+.\build-gameclient.bat
+```
+
+This will create the `GameClient.exe` executable.
+
+**Note:** Raylib library must be present in the `raylib/` directory. See `RAYLIB_SETUP.md` for setup instructions.
+
+### Building the Test Client
+
+1. Navigate to the project directory:
+```bash
+cd "D:\Real-Time Game Server + ECS (FPS-lite  Arena)"
+```
+
+2. Run `build-client.bat` to build the test client:
 ```bash
 .\build-client.bat
 ```
@@ -115,9 +152,29 @@ Game Server initialized on 0.0.0.0:7777 (Tick Rate: 60)
 Server running. Press Ctrl+C to stop.
 ```
 
-### Running the Client
+### Running the Game Client (2D Visualization)
 
-While the server is running, open a **new terminal window** and run the client:
+While the server is running, open a **new terminal window** and run the game client:
+
+```bash
+# Default: 127.0.0.1:7777
+GameClient.exe
+
+# For a different server address and port
+GameClient.exe 192.168.1.100 7777
+```
+
+The game client features:
+- **Top-down 2D view** - Raylib-based visualization
+- **WASD movement** - Direct keyboard controls
+- **Mouse look** - Mouse controls for direction
+- **Zoom controls** - Mouse wheel or +/- keys
+- **Real-time updates** - Live snapshot rendering
+- **Multiplayer view** - See all players and map objects
+
+### Running the Test Client
+
+For basic connection testing:
 
 ```bash
 # Default: 127.0.0.1:7777
@@ -127,20 +184,35 @@ TestClient.exe
 TestClient.exe 127.0.0.1 7777
 ```
 
-The client will:
-1. Send a `CONNECT` packet to the server
-2. Wait for server response
-3. Send `HEARTBEAT` packets every 2 seconds
-4. Listen for packets from the server
+### Multiplayer Setup
+
+To play with friends on the same network:
+
+1. **Start the server:**
+   ```bash
+   start-server.bat
+   ```
+   This will display your server's IP address.
+
+2. **On client computers:**
+   ```bash
+   GameClient.exe [SERVER_IP] 7777
+   ```
+   Replace `[SERVER_IP]` with the IP address shown by the server.
+
+3. **Firewall Configuration:**
+   - Windows Firewall must allow UDP port 7777
+   - See `NETWORK_SETUP.md` for detailed instructions
 
 ### Connection Test
 
 You should see the following message in the server terminal:
 ```
 Player 0 connected from 127.0.0.1:XXXXX
+Player 1 connected from 192.168.1.101:XXXXX
 ```
 
-This indicates that the client has successfully connected.
+This indicates that clients have successfully connected.
 
 ## 🔧 Technical Details
 
@@ -164,11 +236,12 @@ This indicates that the client has successfully connected.
 - AABB collision detection
 - Vec3 math library
 
-### Matchmaker
+### Matchmaking
 
-- Rating-based matching
-- Configurable tolerance
-- Team size support
+- Simple queue-based matching (no rating system)
+- Automatic room creation when 2 players are matched
+- Players can request matches and cancel queue
+- FIND_MATCH and MATCH_FOUND packet types
 
 ### Anti-Cheat
 
@@ -183,31 +256,48 @@ This indicates that the client has successfully connected.
 - ECS framework
 - Network layer
 - Server framework
-- Basic physics structure
-- Test client
+- Physics system (BVH, collision detection)
+- Component serialization
+- Snapshot system
+- 2D Game Client (Raylib)
+- Matchmaking system
+- Random spawn system
+- Map objects (walls/obstacles)
+- 150x150 game world
+- Multiplayer support
 
 **⏳ In Progress:**
-- Snapshot serialization
 - Delta compression implementation
 - Lag compensation
 - Rollback/rewind
 
 **📋 Planned:**
 - Deterministic simulation
+- Rating-based matchmaking
 - Lua/AngelScript scripting
 - Glicko-2 rating system
 - Profiling tools
+- Shooting mechanics
+- Health system improvements
 
 ## ⚠️ Important Notes
 
 - **C++ Standard**: The project uses C++17 standard (due to MinGW 13.2.0 C++20 incompatibility)
 - **MinGW Version**: Tested with MinGW 13.2.0
 - **Platform**: Currently optimized for Windows, Linux support is planned
+- **Raylib**: Required for GameClient. Must be in `raylib/` directory
+- **Network**: Server binds to `0.0.0.0` (all interfaces). Use `get-server-ip.bat` to find your IP
+- **Firewall**: UDP port 7777 must be open for multiplayer connections
 - **Production Use**: This project is in active development. Additional tests and optimizations are required for production use
 
-## 📝 License
+## 🌐 Network Configuration
 
-This project is for educational/learning purposes.
+For detailed network setup instructions, see `NETWORK_SETUP.md`.
+
+Quick start:
+1. Run `start-server.bat` to start the server and see your IP
+2. On client machines: `GameClient.exe [SERVER_IP] 7777`
+3. Ensure Windows Firewall allows UDP port 7777
 
 ## 🤝 Contributing
 
