@@ -4,8 +4,6 @@
 #include <sstream>
 #include <iostream>
 
-using json = nlohmann::json;
-
 namespace ldtk {
 
 bool LDtkParser::loadWorld(const std::string& jsonPath, World& world) {
@@ -15,10 +13,10 @@ bool LDtkParser::loadWorld(const std::string& jsonPath, World& world) {
         return false;
     }
     
-    json j;
+    nlohmann::json j;
     try {
         file >> j;
-    } catch (const json::parse_error& e) {
+    } catch (const nlohmann::json::parse_error& e) {
         std::cerr << "[LDtk] JSON parse error: " << e.what() << std::endl;
         return false;
     }
@@ -26,7 +24,7 @@ bool LDtkParser::loadWorld(const std::string& jsonPath, World& world) {
     return parseWorld(j, world);
 }
 
-bool LDtkParser::parseWorld(const json& j, World& world) {
+bool LDtkParser::parseWorld(const nlohmann::json& j, World& world) {
     try {
         world.worldLayout = j.value("worldLayout", "Free");
         world.worldGridWidth = j.value("worldGridWidth", 0);
@@ -55,13 +53,13 @@ bool LDtkParser::parseWorld(const json& j, World& world) {
         }
         
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing world: " << e.what() << std::endl;
         return false;
     }
 }
 
-bool LDtkParser::parseLevel(const json& j, Level& level) {
+bool LDtkParser::parseLevel(const nlohmann::json& j, Level& level) {
     try {
         level.identifier = j.value("identifier", "");
         level.pxWid = j.value("pxWid", 0);
@@ -78,13 +76,13 @@ bool LDtkParser::parseLevel(const json& j, Level& level) {
         }
         
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing level: " << e.what() << std::endl;
         return false;
     }
 }
 
-bool LDtkParser::parseLayer(const json& j, Layer& layer) {
+bool LDtkParser::parseLayer(const nlohmann::json& j, Layer& layer) {
     try {
         layer.identifier = j.value("__identifier", "");
         layer.type = j.value("__type", "");
@@ -132,13 +130,13 @@ bool LDtkParser::parseLayer(const json& j, Layer& layer) {
         }
         
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing layer: " << e.what() << std::endl;
         return false;
     }
 }
 
-bool LDtkParser::parseTile(const json& j, Tile& tile) {
+bool LDtkParser::parseTile(const nlohmann::json& j, Tile& tile) {
     try {
         if (j.contains("px") && j["px"].is_array() && j["px"].size() >= 2) {
             tile.px[0] = j["px"][0];
@@ -156,13 +154,13 @@ bool LDtkParser::parseTile(const json& j, Tile& tile) {
         }
         tile.a = j.value("a", 1.0f);
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing tile: " << e.what() << std::endl;
         return false;
     }
 }
 
-bool LDtkParser::parseEntity(const json& j, EntityInstance& entity) {
+bool LDtkParser::parseEntity(const nlohmann::json& j, EntityInstance& entity) {
     try {
         entity.identifier = j.value("__identifier", "");
         if (j.contains("px") && j["px"].is_array() && j["px"].size() >= 2) {
@@ -182,13 +180,13 @@ bool LDtkParser::parseEntity(const json& j, EntityInstance& entity) {
         }
         
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing entity: " << e.what() << std::endl;
         return false;
     }
 }
 
-bool LDtkParser::parseTileset(const json& j, TilesetDef& tileset) {
+bool LDtkParser::parseTileset(const nlohmann::json& j, TilesetDef& tileset) {
     try {
         tileset.uid = j.value("uid", -1);
         tileset.identifier = j.value("identifier", "");
@@ -199,7 +197,7 @@ bool LDtkParser::parseTileset(const json& j, TilesetDef& tileset) {
         tileset.spacing = j.value("spacing", 0);
         tileset.padding = j.value("padding", 0);
         return true;
-    } catch (const json::exception& e) {
+    } catch (const nlohmann::json::exception& e) {
         std::cerr << "[LDtk] Error parsing tileset: " << e.what() << std::endl;
         return false;
     }

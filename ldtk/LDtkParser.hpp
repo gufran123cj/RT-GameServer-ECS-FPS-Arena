@@ -5,10 +5,9 @@
 #include <unordered_map>
 #include <memory>
 
-// Forward declarations
-namespace nlohmann {
-    class json;
-}
+// Forward declaration for nlohmann::json
+// We need to include it in header because we use it in function signatures
+#include "../include/json/json.hpp"
 
 namespace ldtk {
 
@@ -96,12 +95,12 @@ public:
     
 private:
     // Internal parsing helpers
-    static bool parseWorld(const nlohmann::json& json, World& world);
-    static bool parseLevel(const nlohmann::json& json, Level& level);
-    static bool parseLayer(const nlohmann::json& json, Layer& layer);
-    static bool parseTile(const nlohmann::json& json, Tile& tile);
-    static bool parseEntity(const nlohmann::json& json, EntityInstance& entity);
-    static bool parseTileset(const nlohmann::json& json, TilesetDef& tileset);
+    static bool parseWorld(const nlohmann::json& j, World& world);
+    static bool parseLevel(const nlohmann::json& j, Level& level);
+    static bool parseLayer(const nlohmann::json& j, Layer& layer);
+    static bool parseTile(const nlohmann::json& j, Tile& tile);
+    static bool parseEntity(const nlohmann::json& j, EntityInstance& entity);
+    static bool parseTileset(const nlohmann::json& j, TilesetDef& tileset);
 };
 
 } // namespace ldtk
