@@ -57,8 +57,8 @@ int main(int argc, char* argv[]) {
     if (argc > 2) serverPort = static_cast<uint16_t>(std::atoi(argv[2]));
     
     // Initialize Raylib window
-    const int screenWidth = 1024;
-    const int screenHeight = 768;
+    const int screenWidth = 1920;
+    const int screenHeight = 1080;
     
     InitWindow(screenWidth, screenHeight, "Top-Down 2D Game Client");
     SetTargetFPS(60);
@@ -67,12 +67,34 @@ int main(int argc, char* argv[]) {
     assets::AssetManager assetManager("sprites");
     ldtk::World* ldtkWorld = nullptr;
     ldtk::Level* currentLevel = nullptr;
+    float mapWorldWidth = 32.0f;
+    float mapWorldHeight = 16.0f;
     
     if (assetManager.loadLDtkWorld("map.json")) {
         ldtkWorld = assetManager.getLDtkWorld();
         if (ldtkWorld && !ldtkWorld->levels.empty()) {
             // Load first level
             currentLevel = &ldtkWorld->levels[0];
+            // Calculate actual map size in world units
+            // LDtk uses pixels, we convert to world units (16 pixels = 1 world unit)
+            // For rendering, we treat the map as if it's 1920x1080 pixels to fill screen
+            float actualMapPixelWidth = static_cast<float>(currentLevel->pxWid);
+            float actualMapPixelHeight = static_cast<float>(currentLevel->pxHei);
+            
+            // Scale map to fill screen (1920x1080)
+            // Calculate scale factor to make map fill screen
+            float scaleX = screenWidth / actualMapPixelWidth;
+            float scaleY = screenHeight / actualMapPixelHeight;
+            float scale = std::max(scaleX, scaleY); // Use larger scale to fill screen
+            
+            // Adjust world units based on scale
+            mapWorldWidth = (actualMapPixelWidth * scale) / 16.0f;
+            mapWorldHeight = (actualMapPixelHeight * scale) / 16.0f;
+            
+            std::cout << "[GameClient] Map scale factor: " << scale << "x (actual: " 
+                      << actualMapPixelWidth << "x" << actualMapPixelHeight 
+                      << " -> scaled: " << (actualMapPixelWidth * scale) << "x" 
+                      << (actualMapPixelHeight * scale) << ")" << std::endl;
             std::cout << "[GameClient] Loaded LDtk level: " << currentLevel->identifier 
                       << " (" << currentLevel->pxWid << "x" << currentLevel->pxHei << ")" << std::endl;
             std::cout << "[GameClient] Level has " << currentLevel->layers.size() << " layers" << std::endl;
@@ -131,10 +153,18 @@ int main(int argc, char* argv[]) {
     
     // Camera for top-down view (Raylib Camera2D)
     Camera2D camera = {0};
+    // Camera target will be set to map center (0,0) or player position
     camera.target = (Vector2){0, 0};
     camera.offset = (Vector2){screenWidth / 2.0f, screenHeight / 2.0f};
     camera.rotation = 0.0f;
+    
+    // Calculate zoom to fill entire screen (100% - no borders)
+    // Map is scaled during rendering to fill screen, so zoom is 1.0
+    // The scaling happens in the rendering loop, not here
     camera.zoom = 1.0f;
+    std::cout << "[GameClient] Camera zoom (fixed): " << camera.zoom << "x (map: " 
+              << mapWorldWidth << "x" << mapWorldHeight << " world units, screen: " 
+              << screenWidth << "x" << screenHeight << ")" << std::endl;
     
     // Game state
     Tick lastServerTick = 0;
@@ -345,18 +375,7 @@ int main(int argc, char* argv[]) {
             camera.target = (Vector2){avgX, -avgY};
         }
         
-        // Camera zoom controls (mouse wheel + keyboard)
-        float wheelMove = GetMouseWheelMove();
-        if (wheelMove != 0.0f) {
-            camera.zoom += wheelMove * 0.1f;
-        }
-        if (IsKeyDown(KEY_EQUAL) || IsKeyDown(KEY_KP_ADD)) {
-            camera.zoom += 0.01f;
-        }
-        if (IsKeyDown(KEY_MINUS) || IsKeyDown(KEY_KP_SUBTRACT)) {
-            camera.zoom -= 0.01f;
-        }
-        camera.zoom = std::max(0.1f, std::min(5.0f, camera.zoom));
+        // Zoom is fixed - no zoom controls (map fills entire screen)
         
         // Rendering
         BeginDrawing();
@@ -372,6 +391,11 @@ int main(int argc, char* argv[]) {
                 std::cout << "[GameClient] Rendering " << currentLevel->layers.size() << " layers" << std::endl;
                 debugPrinted = true;
             }
+            
+            // Calculate scale once for all tiles (map should fill screen 1920x1080)
+            float scaleX = screenWidth / static_cast<float>(currentLevel->pxWid);
+            float scaleY = screenHeight / static_cast<float>(currentLevel->pxHei);
+            float mapScale = std::max(scaleX, scaleY); // Use larger to fill screen
             
             for (const auto& layer : currentLevel->layers) {
                 if (!layer.visible) continue;
@@ -398,8 +422,14 @@ int main(int argc, char* argv[]) {
                 for (const auto& tile : layer.gridTiles) {
                     // Convert pixel position to world coordinates
                     // LDtk uses pixel coordinates, we need to convert to world units
-                    float worldX = (tile.px[0] - currentLevel->pxWid / 2.0f) / 16.0f;
-                    float worldY = -(tile.px[1] - currentLevel->pxHei / 2.0f) / 16.0f; // Invert Y
+                    // Scale map to fill screen (1920x1080)
+                    float scaledPxWid = currentLevel->pxWid * mapScale;
+                    float scaledPxHei = currentLevel->pxHei * mapScale;
+                    float scaledTilePxX = tile.px[0] * mapScale;
+                    float scaledTilePxY = tile.px[1] * mapScale;
+                    
+                    float worldX = (scaledTilePxX - scaledPxWid / 2.0f) / 16.0f;
+                    float worldY = -(scaledTilePxY - scaledPxHei / 2.0f) / 16.0f; // Invert Y
                     
                     // Source rectangle in tileset
                     Rectangle srcRect = {
@@ -409,12 +439,13 @@ int main(int argc, char* argv[]) {
                         static_cast<float>(tileSize)
                     };
                     
-                    // Destination rectangle in world
+                    // Destination rectangle in world (scaled)
+                    float scaledTileSize = tileSize * mapScale;
                     Rectangle dstRect = {
-                        worldX - (tileSize / 32.0f), // Center the tile
-                        worldY - (tileSize / 32.0f),
-                        static_cast<float>(tileSize) / 16.0f, // Convert to world units
-                        static_cast<float>(tileSize) / 16.0f
+                        worldX - (scaledTileSize / 32.0f), // Center the tile
+                        worldY - (scaledTileSize / 32.0f),
+                        scaledTileSize / 16.0f, // Convert to world units (scaled)
+                        scaledTileSize / 16.0f
                     };
                     
                     // Handle flip flags
@@ -432,8 +463,14 @@ int main(int argc, char* argv[]) {
                 
                 // Render auto layer tiles
                 for (const auto& tile : layer.autoLayerTiles) {
-                    float worldX = (tile.px[0] - currentLevel->pxWid / 2.0f) / 16.0f;
-                    float worldY = -(tile.px[1] - currentLevel->pxHei / 2.0f) / 16.0f;
+                    // Scale map to fill screen (1920x1080) - use pre-calculated mapScale
+                    float scaledPxWid = currentLevel->pxWid * mapScale;
+                    float scaledPxHei = currentLevel->pxHei * mapScale;
+                    float scaledTilePxX = tile.px[0] * mapScale;
+                    float scaledTilePxY = tile.px[1] * mapScale;
+                    
+                    float worldX = (scaledTilePxX - scaledPxWid / 2.0f) / 16.0f;
+                    float worldY = -(scaledTilePxY - scaledPxHei / 2.0f) / 16.0f;
                     
                     Rectangle srcRect = {
                         static_cast<float>(tile.src[0]),
@@ -442,7 +479,8 @@ int main(int argc, char* argv[]) {
                         static_cast<float>(tileSize)
                     };
                     
-                    float tileWorldSize = static_cast<float>(tileSize) / 16.0f;
+                    float scaledTileSize = tileSize * mapScale;
+                    float tileWorldSize = scaledTileSize / 16.0f;
                     Rectangle dstRect = {
                         worldX - tileWorldSize * 0.5f,
                         worldY - tileWorldSize * 0.5f,
@@ -508,15 +546,14 @@ int main(int argc, char* argv[]) {
         EndMode2D();
         
         // Draw UI overlay - Sol üst köşe
-        DrawRectangle(10, 10, 320, 180, (Color){0, 0, 0, 180});
+        DrawRectangle(10, 10, 320, 160, (Color){0, 0, 0, 180});
         DrawText(TextFormat("Server: %s:%d", serverIP.c_str(), serverPort), 20, 20, 16, WHITE);
         DrawText(TextFormat("Tick: %llu", lastServerTick), 20, 40, 16, WHITE);
         DrawText(TextFormat("Players: %zu | Your ID: %u", players.size(), playerID), 20, 60, 16, WHITE);
         DrawText(TextFormat("Snapshots: %d", snapshotCount), 20, 80, 16, WHITE);
-        DrawText(TextFormat("Zoom: %.2fx", camera.zoom), 20, 100, 16, WHITE);
-        DrawText("Controls:", 20, 120, 14, GRAY);
-        DrawText("WASD = Move | Mouse = Look | Wheel = Zoom", 20, 140, 12, LIGHTGRAY);
-        DrawText("+/- = Zoom | Space = Jump | Shift = Sprint", 20, 160, 12, LIGHTGRAY);
+        DrawText("Controls:", 20, 100, 14, GRAY);
+        DrawText("WASD = Move | Mouse = Look", 20, 120, 12, LIGHTGRAY);
+        DrawText("Space = Jump | Shift = Sprint", 20, 140, 12, LIGHTGRAY);
         
         // Draw UI overlay - Sağ üst köşe (Koordinatlar)
         if (ownPlayer) {
