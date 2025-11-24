@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "../System.hpp"
 #include "../World.hpp"
 #include "../components/PositionComponent.hpp"
@@ -22,18 +23,15 @@ public:
     ~MovementSystem() override = default;
     
     void update(float deltaTime, World& world) override {
-        // Get component storages
         auto& positions = world.getStorage<components::PositionComponent>();
         auto& velocities = world.getStorage<components::VelocityComponent>();
         
-        // Iterate through all entities with velocity
         for (const auto& pair : velocities) {
             Entity::ID entityID = pair.first;
             const auto& velocity = *pair.second;
-            // Check if entity also has position component
             auto* position = positions.get(entityID);
             if (position) {
-                // Update position: position += velocity * deltaTime
+                std::cout << "Movement for playerId: " << entityID << std::endl;
                 position->position += velocity.velocity * deltaTime;
             }
         }

@@ -4,8 +4,8 @@
 namespace game::client {
 
 void GameClient::onConnectAck(game::core::Entity::ID entityID) {
-    std::cout << "✅ Connected to server! Entity ID: " << entityID << std::endl;
     myEntityID = entityID;
+    std::cout << "localPlayerId: " << myEntityID << std::endl;
 }
 
 void GameClient::onSnapshot(game::network::Packet& packet) {
@@ -16,10 +16,8 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
         return;
     }
     
-    // Clear old entities
     remoteEntities.clear();
     
-    // Read entities from snapshot
     for (uint32_t i = 0; i < entityCount; ++i) {
         game::core::Entity::ID entityID;
         if (!packet.read(entityID)) break;
@@ -39,12 +37,6 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
         entity.color = sf::Color(r, g, b, a);
         
         remoteEntities[entityID] = entity;
-        
-        // Debug: Log if this is our entity
-        if (entityID == myEntityID) {
-            std::cout << "[CLIENT] Received snapshot update for MY entity " << entityID 
-                      << " at position (" << posX << ", " << posY << ")" << std::endl;
-        }
     }
 }
 

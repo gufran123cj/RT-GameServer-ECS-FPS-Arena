@@ -97,9 +97,7 @@ void ServerNetworkManager::handlePacket(const game::network::Address& from, cons
         }
         
         case game::network::PacketType::INPUT: {
-            // Store INPUT packet for GameServer to process
             lastInputPackets[from] = {from, packet, true};
-            std::cout << "[SERVER] Received INPUT packet from " << from.toString() << std::endl;
             break;
         }
         
@@ -214,8 +212,6 @@ void ServerNetworkManager::sendConnectAck(const game::network::Address& address,
     ).count()));
     
     packet.write(entityID);
-    std::cout << "[SERVER] Sending CONNECT_ACK to " << address.toString() 
-              << " with Entity ID: " << entityID << std::endl;
     sendPacket(address, packet);
 }
 

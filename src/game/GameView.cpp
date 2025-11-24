@@ -16,18 +16,21 @@ void GameView::render(sf::RenderTarget& target, GameModel& model) {
         }
     }
     
-    // Draw local player (always visible, position updated from server if connected)
+    // CRITICAL: Draw local player (SADECE KENDİ ENTITY'MİZİN pozisyonu)
+    // model.player pozisyonu updatePlayerPosition() tarafından sadece kendi entity'mizin pozisyonu ile güncelleniyor
     target.draw(model.player);
     
-    // Draw other players from server snapshot (excluding ourselves)
+    // CRITICAL: Draw other players from server snapshot (excluding ourselves)
+    // Sadece diğer entity'leri çiz, kendi entity'miz zaten yukarıda çizildi
     if (model.connectedToServer && !model.networkClient.remoteEntities.empty()) {
         for (const auto& [entityID, remoteEntity] : model.networkClient.remoteEntities) {
-            // Skip our own entity (already drawn above)
+            // CRITICAL: Skip our own entity (already drawn above as model.player)
+            // Bu kontrol çok önemli - kendi entity'mizi iki kez çizmemek için
             if (entityID == model.networkClient.myEntityID && model.networkClient.myEntityID != 0) {
                 continue;
             }
             
-            // Draw other players (remote entities)
+            // Draw other players (remote entities) - bunlar diğer client'ların entity'leri
             sf::RectangleShape remotePlayer;
             remotePlayer.setSize(remoteEntity.size);
             remotePlayer.setPosition(remoteEntity.position);

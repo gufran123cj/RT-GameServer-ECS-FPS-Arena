@@ -4,12 +4,12 @@
 
 namespace game::client {
 
-void GameController::update(GameModel& model) {
+void GameController::update(GameModel& model, const sf::Window& window) {
     // Update player position from server snapshot
     updatePlayerPosition(model);
     
-    // Handle input and send to server
-    handleInput(model);
+    // Handle input and send to server (only if window has focus)
+    handleInput(model, window);
 }
 
 void GameController::processNetwork(GameModel& model) {
@@ -19,40 +19,26 @@ void GameController::processNetwork(GameModel& model) {
 }
 
 void GameController::updatePlayerPosition(GameModel& model) {
-    if (!model.connectedToServer || model.networkClient.myEntityID == game::INVALID_ENTITY) {
-        if (model.connectedToServer && model.networkClient.myEntityID == game::INVALID_ENTITY) {
-            // Debug: Entity ID not set yet
-            static int debugCounter = 0;
-            if (debugCounter++ % 60 == 0) {
-                std::cout << "[CLIENT] WARNING: Connected but myEntityID is still INVALID!" << std::endl;
-            }
-        }
+    if (!model.connectedToServer) {
+        return;
+    }
+    
+    if (model.networkClient.myEntityID == game::INVALID_ENTITY || model.networkClient.myEntityID == 0) {
         return;
     }
     
     auto it = model.networkClient.remoteEntities.find(model.networkClient.myEntityID);
     if (it == model.networkClient.remoteEntities.end()) {
-        // Debug: Entity not found in snapshot
-        static int debugCounter = 0;
-        if (debugCounter++ % 60 == 0) {
-            std::cout << "[CLIENT] WARNING: My entity ID " << model.networkClient.myEntityID 
-                      << " not found in snapshot! Total entities: " 
-                      << model.networkClient.remoteEntities.size() << std::endl;
-        }
         return;
     }
     
-    // Server'dan gelen pozisyonu kullan (mavi player'ın pozisyonu)
     sf::Vector2f serverPos = it->second.position;
     
-    // Collider kontrolü: Server pozisyonunu uygulamadan önce kontrol et
     sf::Vector2f oldPos = model.player.getPosition();
     model.player.setPosition(serverPos);
     
-    // Check collision with colliders
     bool hasCollision = PlayerCollision::checkCollision(model.player, model.colliders);
     
-    // Eğer collider çakışması varsa, son geçerli pozisyonu kullan
     if (hasCollision) {
         model.serverPositionInvalid = true;
         if (model.hasLastValidPosition) {
@@ -63,26 +49,57 @@ void GameController::updatePlayerPosition(GameModel& model) {
             model.hasLastValidPosition = true;
         }
     } else {
-        // Geçerli pozisyon, sakla
         model.lastValidPosition = serverPos;
         model.hasLastValidPosition = true;
         model.serverPositionInvalid = false;
     }
 }
 
-void GameController::handleInput(GameModel& model) {
-    // Calculate input velocity from keyboard
-    float velX = 0.0f, velY = 0.0f;
-    const float moveSpeed = 60.0f;  // pixels per second (server will use this in fixed timestep)
-    const float deltaTime = 1.0f / 60.0f;  // Fixed timestep (server tick rate)
+void GameController::handleInput(GameModel& model, const sf::Window& window) {
+    // CRITICAL: Only process input if this window has focus
+    // This prevents all clients from responding to the same keyboard input
+    if (!window.hasFocus()) {
+        return;  // This window is not active, don't process input
+    }
     
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up) || sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+    float velX = 0.0f, velY = 0.0f;
+    const float moveSpeed = 60.0f;
+    const float deltaTime = 1.0f / 60.0f;
+    
+    bool wPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
+    bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+    bool aPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::A);
+    bool dPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
+    bool upPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Up);
+    bool downPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
+    bool leftPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Left);
+    bool rightPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Right);
+    
+    // Log key presses (only when a key is actually pressed)
+    static bool lastW = false, lastS = false, lastA = false, lastD = false;
+    static bool lastUp = false, lastDown = false, lastLeft = false, lastRight = false;
+    
+    if ((wPressed && !lastW) || (aPressed && !lastA) || (sPressed && !lastS) || (dPressed && !lastD) ||
+        (upPressed && !lastUp) || (downPressed && !lastDown) || (leftPressed && !lastLeft) || (rightPressed && !lastRight)) {
+        std::cout << "Input from playerId: " << model.networkClient.myEntityID << std::endl;
+    }
+    
+    lastW = wPressed;
+    lastS = sPressed;
+    lastA = aPressed;
+    lastD = dPressed;
+    lastUp = upPressed;
+    lastDown = downPressed;
+    lastLeft = leftPressed;
+    lastRight = rightPressed;
+    
+    if (upPressed || wPressed)
         velY = -moveSpeed;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down) || sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+    if (downPressed || sPressed)
         velY = moveSpeed;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left) || sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+    if (leftPressed || aPressed)
         velX = -moveSpeed;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+    if (rightPressed || dPressed)
         velX = moveSpeed;
     
     // Collider kontrolü: Eğer INPUT yönü collider'a doğruysa, velocity'yi sıfırla
@@ -100,8 +117,14 @@ void GameController::handleInput(GameModel& model) {
         velY = 0.0f;
     }
     
-    // Send input to server if connected (sadece server pozisyonu geçerliyse)
-    if (model.connectedToServer && model.networkClient.isConnected() && !model.serverPositionInvalid) {
+    // CRITICAL: Only send INPUT if we have a valid entity ID assigned by the server
+    // Each client should ONLY control its own entity, not others
+    if (model.connectedToServer && 
+        model.networkClient.isConnected() && 
+        !model.serverPositionInvalid &&
+        model.networkClient.myEntityID != game::INVALID_ENTITY &&
+        model.networkClient.myEntityID != 0) {
+        
         game::network::Packet inputPacket(game::network::PacketType::INPUT);
         inputPacket.setSequence(1);
         inputPacket.setTimestamp(static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -110,13 +133,16 @@ void GameController::handleInput(GameModel& model) {
         inputPacket.write(velX);
         inputPacket.write(velY);
         
-        // Debug: Log sent velocity
-        if (velX != 0 || velY != 0) {
-            std::cout << "[CLIENT] Sending INPUT: Velocity (" << velX << ", " << velY 
-                      << "), Packet size: " << inputPacket.getSize() << " bytes" << std::endl;
-        }
-        
         model.networkClient.sendPacket(inputPacket);
+    } else {
+        // Debug: Log why INPUT is not being sent
+        static int debugCounter = 0;
+        if (debugCounter++ % 60 == 0 && (velX != 0 || velY != 0)) {
+            std::cout << "[CLIENT] NOT sending INPUT - connected: " << model.connectedToServer
+                      << ", isConnected: " << model.networkClient.isConnected()
+                      << ", serverPositionInvalid: " << model.serverPositionInvalid
+                      << ", myEntityID: " << model.networkClient.myEntityID << std::endl;
+        }
     }
 }
 

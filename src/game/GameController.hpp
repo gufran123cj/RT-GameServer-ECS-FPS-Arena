@@ -18,8 +18,9 @@ class GameController {
 public:
     /**
      * Update game state
+     * @param window The render window to check focus state for input
      */
-    static void update(GameModel& model);
+    static void update(GameModel& model, const sf::Window& window);
     
     /**
      * Process network packets
@@ -28,8 +29,9 @@ public:
     
     /**
      * Handle keyboard input and send to server
+     * @param window The render window to check focus state
      */
-    static void handleInput(GameModel& model);
+    static void handleInput(GameModel& model, const sf::Window& window);
     
     /**
      * Update player position from server snapshot

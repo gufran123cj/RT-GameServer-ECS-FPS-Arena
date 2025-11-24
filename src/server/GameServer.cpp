@@ -95,10 +95,23 @@ void GameServer::run() {
         
         if (debugLogElapsed >= 5.0f) {
             std::cout << "\n=== SERVER DEBUG LOG (Entity Positions) ===" << std::endl;
+            std::cout << "Total connected clients: " << networkManager.getClientCount() << std::endl;
+            
+            // List all connections
+            for (const auto& [addr, conn] : networkManager.getConnections()) {
+                if (conn.connected) {
+                    std::cout << "  Client: " << addr.toString() 
+                              << " | Entity ID: " << (conn.entity.isValid() ? std::to_string(conn.entity.id) : "INVALID")
+                              << std::endl;
+                }
+            }
+            
             auto entities = world.getEntitiesWith<
                 game::core::components::PositionComponent,
                 game::core::components::VelocityComponent
             >();
+            
+            std::cout << "Total entities with Position+Velocity: " << entities.size() << std::endl;
             
             for (game::core::Entity::ID entityID : entities) {
                 const auto* pos = world.getComponent<game::core::components::PositionComponent>(entityID);
@@ -138,36 +151,32 @@ void GameServer::processNetwork() {
     // Process incoming packets
     networkManager.processPackets();
     
-    // Process INPUT packets from clients
+    // CRITICAL: Process INPUT packets from clients
+    // Each client's INPUT should ONLY affect their own entity
+    // IMPORTANT: If no INPUT is received, set velocity to zero (stop movement)
     for (const auto& [addr, conn] : networkManager.getConnections()) {
         if (conn.connected && conn.entity.isValid()) {
             auto input = networkManager.getLastInput(addr);
+            auto* velComp = world.getComponent<game::core::components::VelocityComponent>(conn.entity.id);
+            
             if (input.valid) {
                 // Read input data from packet
                 game::network::Packet& packet = input.packet;
                 packet.resetRead();  // Skip header
                 
-                // Debug: Check packet size
-                std::cout << "[SERVER] INPUT packet size: " << packet.getSize() 
-                          << " bytes, header size: " << sizeof(game::network::PacketHeader) << std::endl;
-                
                 float velX = 0, velY = 0;
                 if (packet.read(velX) && packet.read(velY)) {
-                    // Update entity velocity based on input
-                    auto* velComp = world.getComponent<game::core::components::VelocityComponent>(conn.entity.id);
+                    std::cout << "Input from playerId: " << conn.entity.id << std::endl;
                     if (velComp) {
-                        std::cout << "[SERVER] Processing INPUT for entity " << conn.entity.id 
-                                  << " from " << addr.toString() 
-                                  << " | Velocity: (" << velX << ", " << velY << ")" << std::endl;
                         velComp->velocity.x = velX;
                         velComp->velocity.y = velY;
-                    } else {
-                        std::cout << "[SERVER] WARNING: Entity " << conn.entity.id 
-                                  << " has no VelocityComponent!" << std::endl;
                     }
-                } else {
-                    std::cout << "[SERVER] WARNING: Failed to read INPUT packet data from " 
-                              << addr.toString() << " (packet size: " << packet.getSize() << ")" << std::endl;
+                }
+            } else {
+                // No INPUT received - stop movement for this entity
+                if (velComp) {
+                    velComp->velocity.x = 0.0f;
+                    velComp->velocity.y = 0.0f;
                 }
             }
         }
@@ -176,14 +185,16 @@ void GameServer::processNetwork() {
     // Check for connection timeouts
     networkManager.checkTimeouts(config.connectionTimeout);
     
-    // Handle new connections and spawn entities
+    // CRITICAL: Handle new connections and spawn entities
+    // Each client gets its own unique entity
     for (const auto& [addr, conn] : networkManager.getConnections()) {
         if (conn.connected && !conn.entity.isValid()) {
             // New client, spawn entity at initial position from client
             sf::Vector2f initialPos = networkManager.getClientInitialPosition(addr);
             game::core::Entity entity = spawnPlayer(addr, initialPos);
+            
             networkManager.setClientEntity(addr, entity);
-            // Send CONNECT_ACK after entity is spawned
+            std::cout << "New playerId: " << entity.id << std::endl;
             networkManager.sendConnectAck(addr, entity.id);
         }
     }

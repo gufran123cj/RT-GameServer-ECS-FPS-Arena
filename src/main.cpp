@@ -84,8 +84,8 @@ int main() {
             }
         }
 
-        // Update game state
-        GameController::update(model);
+        // Update game state (only process input if window has focus)
+        GameController::update(model, window);
         
         // Update camera
         GameView::updateCamera(model);

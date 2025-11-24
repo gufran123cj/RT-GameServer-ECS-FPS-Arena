@@ -142,18 +142,13 @@ void ClientNetworkManager::handlePacket(const game::network::Packet& packet) {
     
     switch (type) {
         case game::network::PacketType::CONNECT_ACK: {
-            std::cout << "[CLIENT] Received CONNECT_ACK packet, size: " << packet.getSize() << " bytes" << std::endl;
             game::network::Packet& nonConstPacket = const_cast<game::network::Packet&>(packet);
             nonConstPacket.resetRead();
             game::core::Entity::ID receivedEntityID = 0;
             if (nonConstPacket.read(receivedEntityID)) {
                 entityID = receivedEntityID;
-                std::cout << "[CLIENT] Successfully read Entity ID from CONNECT_ACK: " << receivedEntityID << std::endl;
                 connected = true;
-                std::cout << "✅ Connected to server! Entity ID: " << entityID << std::endl;
                 onConnectAck(entityID);
-            } else {
-                std::cout << "[CLIENT] ERROR: Failed to read Entity ID from CONNECT_ACK packet!" << std::endl;
             }
             break;
         }
