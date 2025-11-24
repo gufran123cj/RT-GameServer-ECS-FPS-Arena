@@ -12,6 +12,7 @@
 #include "network/PacketTypes.hpp"
 #include "core/components/PositionComponent.hpp"
 #include "core/components/SpriteComponent.hpp"
+#include "../include/common/types.hpp"
 
 
 auto getPlayerCollider(sf::Shape& player) -> sf::FloatRect {
@@ -38,8 +39,6 @@ public:
     void onConnectAck(game::core::Entity::ID entityID) override {
         std::cout << "✅ Connected to server! Entity ID: " << entityID << std::endl;
         myEntityID = entityID;
-        // Also update base class entityID for consistency
-        this->entityID = entityID;
     }
     
     void onSnapshot(game::network::Packet& packet) override {
@@ -73,6 +72,12 @@ public:
             entity.color = sf::Color(r, g, b, a);
             
             remoteEntities[entityID] = entity;
+            
+            // Debug: Log if this is our entity
+            if (entityID == myEntityID) {
+                std::cout << "[CLIENT] Received snapshot update for MY entity " << entityID 
+                          << " at position (" << posX << ", " << posY << ")" << std::endl;
+            }
         }
     }
     
@@ -161,10 +166,8 @@ struct Game {
         player.setSize({8, 16});
         player.setOrigin(4, 16);
         if (!reloading) {
-            initialPlayerPosition = sf::Vector2f(
-                static_cast<float>(player_ent.getPosition().x + 8),
-                static_cast<float>(player_ent.getPosition().y + 16)
-            );
+            // Use fixed position (176, 256) as requested by user
+            initialPlayerPosition = sf::Vector2f(184.0f, 272.0f);
             player.setPosition(initialPlayerPosition);
         }
         player.setFillColor({player_color.r, player_color.g, player_color.b});
@@ -202,6 +205,13 @@ struct Game {
             ).count()));
             inputPacket.write(velX);
             inputPacket.write(velY);
+            
+            // Debug: Log sent velocity
+            if (velX != 0 || velY != 0) {
+                std::cout << "[CLIENT] Sending INPUT: Velocity (" << velX << ", " << velY 
+                          << "), Packet size: " << inputPacket.getSize() << " bytes" << std::endl;
+            }
+            
             networkClient.sendPacket(inputPacket);
         }
         
@@ -209,10 +219,24 @@ struct Game {
         if (connectedToServer && networkClient.myEntityID != 0) {
             auto it = networkClient.remoteEntities.find(networkClient.myEntityID);
             if (it != networkClient.remoteEntities.end()) {
-                // Server'dan gelen pozisyonu kullan
-                player.setPosition(it->second.position);
+                // Server'dan gelen pozisyonu kullan (mavi player'ın pozisyonu)
+                sf::Vector2f serverPos = it->second.position;
+                player.setPosition(serverPos);
+            } else {
+                // Debug: Entity not found in snapshot
+                static int debugCounter = 0;
+                if (debugCounter++ % 60 == 0) {  // Her 60 frame'de bir log
+                    std::cout << "[CLIENT] WARNING: My entity ID " << networkClient.myEntityID 
+                              << " not found in snapshot! Total entities: " 
+                              << networkClient.remoteEntities.size() << std::endl;
+                }
             }
-            // Eğer snapshot henüz gelmemişse, player pozisyonu değişmez (local pozisyon kalır)
+        } else if (connectedToServer && networkClient.myEntityID == game::INVALID_ENTITY) {
+            // Debug: Entity ID not set yet (INVALID_ENTITY = 4294967295)
+            static int debugCounter = 0;
+            if (debugCounter++ % 60 == 0) {  // Her 60 frame'de bir log
+                std::cout << "[CLIENT] WARNING: Connected but myEntityID is still INVALID!" << std::endl;
+            }
         }
 
         // update camera (follow player position from server)
@@ -374,7 +398,7 @@ int main() {
             std::cout << "  My Entity ID: " << game.networkClient.myEntityID << std::endl;
             std::cout << "  Connected to Server: " << (game.connectedToServer ? "Yes" : "No") << std::endl;
             
-            if (game.connectedToServer && game.networkClient.myEntityID != 0) {
+            if (game.connectedToServer && game.networkClient.myEntityID != game::INVALID_ENTITY) {
                 auto it = game.networkClient.remoteEntities.find(game.networkClient.myEntityID);
                 if (it != game.networkClient.remoteEntities.end()) {
                     std::cout << "  Server Position (from snapshot): (" 

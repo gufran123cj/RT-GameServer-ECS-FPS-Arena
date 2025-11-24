@@ -91,14 +91,15 @@ void ServerNetworkManager::handlePacket(const game::network::Address& from, cons
             nonConstPacket.read(posX);
             nonConstPacket.read(posY);
             sf::Vector2f initialPos(posX, posY);
-            game::core::Entity entity = handleConnect(from, initialPos);
-            sendConnectAck(from, entity.id);
+            // Just handle connection, entity will be spawned by GameServer and CONNECT_ACK sent after
+            handleConnect(from, initialPos);
             break;
         }
         
         case game::network::PacketType::INPUT: {
             // Store INPUT packet for GameServer to process
             lastInputPackets[from] = {from, packet, true};
+            std::cout << "[SERVER] Received INPUT packet from " << from.toString() << std::endl;
             break;
         }
         
@@ -213,6 +214,8 @@ void ServerNetworkManager::sendConnectAck(const game::network::Address& address,
     ).count()));
     
     packet.write(entityID);
+    std::cout << "[SERVER] Sending CONNECT_ACK to " << address.toString() 
+              << " with Entity ID: " << entityID << std::endl;
     sendPacket(address, packet);
 }
 

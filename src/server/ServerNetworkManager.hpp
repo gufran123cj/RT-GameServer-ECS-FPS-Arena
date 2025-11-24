@@ -132,6 +132,11 @@ public:
     };
     LastInput getLastInput(const game::network::Address& address) const;
     
+    /**
+     * Send connect acknowledgment
+     */
+    void sendConnectAck(const game::network::Address& address, game::core::Entity::ID entityID);
+    
 private:
     sf::UdpSocket socket;
     std::unordered_map<game::network::Address, ClientConnection, game::network::Address::Hash> connections;
@@ -143,11 +148,6 @@ private:
      * Handle incoming packet
      */
     void handlePacket(const game::network::Address& from, const game::network::Packet& packet);
-    
-    /**
-     * Send connect acknowledgment
-     */
-    void sendConnectAck(const game::network::Address& address, game::core::Entity::ID entityID);
 };
 
 } // namespace game::server

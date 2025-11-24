@@ -145,16 +145,29 @@ void GameServer::processNetwork() {
             if (input.valid) {
                 // Read input data from packet
                 game::network::Packet& packet = input.packet;
-                packet.resetRead();
+                packet.resetRead();  // Skip header
+                
+                // Debug: Check packet size
+                std::cout << "[SERVER] INPUT packet size: " << packet.getSize() 
+                          << " bytes, header size: " << sizeof(game::network::PacketHeader) << std::endl;
                 
                 float velX = 0, velY = 0;
                 if (packet.read(velX) && packet.read(velY)) {
                     // Update entity velocity based on input
                     auto* velComp = world.getComponent<game::core::components::VelocityComponent>(conn.entity.id);
                     if (velComp) {
+                        std::cout << "[SERVER] Processing INPUT for entity " << conn.entity.id 
+                                  << " from " << addr.toString() 
+                                  << " | Velocity: (" << velX << ", " << velY << ")" << std::endl;
                         velComp->velocity.x = velX;
                         velComp->velocity.y = velY;
+                    } else {
+                        std::cout << "[SERVER] WARNING: Entity " << conn.entity.id 
+                                  << " has no VelocityComponent!" << std::endl;
                     }
+                } else {
+                    std::cout << "[SERVER] WARNING: Failed to read INPUT packet data from " 
+                              << addr.toString() << " (packet size: " << packet.getSize() << ")" << std::endl;
                 }
             }
         }
@@ -170,6 +183,8 @@ void GameServer::processNetwork() {
             sf::Vector2f initialPos = networkManager.getClientInitialPosition(addr);
             game::core::Entity entity = spawnPlayer(addr, initialPos);
             networkManager.setClientEntity(addr, entity);
+            // Send CONNECT_ACK after entity is spawned
+            networkManager.sendConnectAck(addr, entity.id);
         }
     }
 }
