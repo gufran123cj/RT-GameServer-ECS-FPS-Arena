@@ -93,8 +93,9 @@ private:
     
     /**
      * Spawn player entity for new client
+     * @param initialPosition Initial position from client (LDtk player position)
      */
-    game::core::Entity spawnPlayer(const game::network::Address& address);
+    game::core::Entity spawnPlayer(const game::network::Address& address, const sf::Vector2f& initialPosition = sf::Vector2f(0, 0));
     
     /**
      * Create snapshot packet from world state

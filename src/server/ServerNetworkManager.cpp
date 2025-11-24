@@ -1,5 +1,6 @@
 #include "ServerNetworkManager.hpp"
 #include "../network/PacketTypes.hpp"
+#include <SFML/System/Vector2.hpp>
 #include <iostream>
 #include <algorithm>
 
@@ -73,7 +74,14 @@ void ServerNetworkManager::handlePacket(const game::network::Address& from, cons
     switch (type) {
         case game::network::PacketType::CONNECT: {
             std::cout << "Client connecting from " << from.toString() << std::endl;
-            game::core::Entity entity = handleConnect(from);
+            // Read initial position from packet
+            game::network::Packet& nonConstPacket = const_cast<game::network::Packet&>(packet);
+            nonConstPacket.resetRead();
+            float posX = 0, posY = 0;
+            nonConstPacket.read(posX);
+            nonConstPacket.read(posY);
+            sf::Vector2f initialPos(posX, posY);
+            game::core::Entity entity = handleConnect(from, initialPos);
             sendConnectAck(from, entity.id);
             break;
         }
@@ -117,12 +125,15 @@ void ServerNetworkManager::broadcastPacket(const game::network::Packet& packet) 
     }
 }
 
-game::core::Entity ServerNetworkManager::handleConnect(const game::network::Address& address) {
+game::core::Entity ServerNetworkManager::handleConnect(const game::network::Address& address, const sf::Vector2f& initialPosition) {
     // Check if client already connected
     auto it = connections.find(address);
     if (it != connections.end() && it->second.connected) {
         return it->second.entity;  // Already connected
     }
+    
+    // Store initial position
+    clientInitialPositions[address] = initialPosition;
     
     // Create new connection with invalid entity (will be set by GameServer)
     game::core::Entity invalidEntity;  // Invalid entity, will be set by caller
@@ -132,6 +143,14 @@ game::core::Entity ServerNetworkManager::handleConnect(const game::network::Addr
               << " (Total clients: " << connections.size() << ")" << std::endl;
     
     return invalidEntity;  // Return invalid to signal new connection
+}
+
+sf::Vector2f ServerNetworkManager::getClientInitialPosition(const game::network::Address& address) const {
+    auto it = clientInitialPositions.find(address);
+    if (it != clientInitialPositions.end()) {
+        return it->second;
+    }
+    return sf::Vector2f(0, 0);  // Default position
 }
 
 void ServerNetworkManager::setClientEntity(const game::network::Address& address, const game::core::Entity& entity) {

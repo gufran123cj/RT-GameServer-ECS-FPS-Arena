@@ -1,9 +1,17 @@
 #include <iostream>
+#include <chrono>
+#include <thread>
+#include <map>
 
 #include <SFML/Graphics.hpp>
 #include <LDtkLoader/Project.hpp>
 
 #include "TileMap.hpp"
+#include "client/ClientNetworkManager.hpp"
+#include "network/Packet.hpp"
+#include "network/PacketTypes.hpp"
+#include "core/components/PositionComponent.hpp"
+#include "core/components/SpriteComponent.hpp"
 
 
 auto getPlayerCollider(sf::Shape& player) -> sf::FloatRect {
@@ -24,6 +32,65 @@ auto getColliderShape(const sf::FloatRect& rect) -> sf::RectangleShape {
     return r;
 }
 
+// Network client for Game
+class GameClient : public game::client::ClientNetworkManager {
+public:
+    void onConnectAck(game::core::Entity::ID entityID) override {
+        std::cout << "✅ Connected to server! Entity ID: " << entityID << std::endl;
+        myEntityID = entityID;
+    }
+    
+    void onSnapshot(game::network::Packet& packet) override {
+        packet.resetRead();
+        
+        uint32_t entityCount;
+        if (!packet.read(entityCount)) {
+            return;
+        }
+        
+        // Clear old entities
+        remoteEntities.clear();
+        
+        // Read entities from snapshot
+        for (uint32_t i = 0; i < entityCount; ++i) {
+            game::core::Entity::ID entityID;
+            if (!packet.read(entityID)) break;
+            
+            float posX, posY;
+            if (!packet.read(posX) || !packet.read(posY)) break;
+            
+            float sizeX, sizeY;
+            if (!packet.read(sizeX) || !packet.read(sizeY)) break;
+            
+            uint8_t r, g, b, a;
+            if (!packet.read(r) || !packet.read(g) || !packet.read(b) || !packet.read(a)) break;
+            
+            RemoteEntity entity;
+            entity.position = sf::Vector2f(posX, posY);
+            entity.size = sf::Vector2f(sizeX, sizeY);
+            entity.color = sf::Color(r, g, b, a);
+            
+            remoteEntities[entityID] = entity;
+        }
+    }
+    
+    void onDisconnect() override {
+        std::cout << "Disconnected from server" << std::endl;
+        remoteEntities.clear();
+        myEntityID = 0;
+    }
+    
+    game::core::Entity::ID myEntityID = 0;
+    
+    struct RemoteEntity {
+        sf::Vector2f position;
+        sf::Vector2f size;
+        sf::Color color;
+    };
+    
+    std::map<game::core::Entity::ID, RemoteEntity> remoteEntities;
+};
+
 struct Game {
     TileMap tilemap;
     sf::RectangleShape player;
@@ -33,6 +100,13 @@ struct Game {
 
     sf::View camera;
     sf::FloatRect camera_bounds;
+    
+    // Network
+    GameClient networkClient;
+    bool connectedToServer = false;
+    std::string serverIp = "127.0.0.1";
+    uint16_t serverPort = 7777;
+    sf::Vector2f initialPlayerPosition;  // LDtk'den yüklenen initial pozisyon
 
     void init(const ldtk::Project& ldtk, bool reloading = false) {
         // get the world from the project
@@ -44,6 +118,23 @@ struct Game {
         // load the TileMap from the level
         TileMap::path = ldtk.getFilePath().directory();
         tilemap.load(ldtk_level0);
+        
+        // Initialize network client
+        if (!reloading) {
+            if (networkClient.initialize()) {
+                // Connect with initial player position from LDtk
+                if (networkClient.connect(serverIp, serverPort, initialPlayerPosition)) {
+                    connectedToServer = true;
+                    std::cout << "Connecting to server " << serverIp << ":" << serverPort 
+                              << " with initial position (" << initialPlayerPosition.x 
+                              << ", " << initialPlayerPosition.y << ")..." << std::endl;
+                } else {
+                    std::cerr << "Failed to connect to server" << std::endl;
+                }
+            } else {
+                std::cerr << "Failed to initialize network client" << std::endl;
+            }
+        }
 
         // get Entities layer from level_0
         auto& entities_layer = ldtk_level0.getLayer("Entities");
@@ -65,8 +156,11 @@ struct Game {
         player.setSize({8, 16});
         player.setOrigin(4, 16);
         if (!reloading) {
-            player.setPosition(static_cast<float>(player_ent.getPosition().x + 8),
-                               static_cast<float>(player_ent.getPosition().y + 16));
+            initialPlayerPosition = sf::Vector2f(
+                static_cast<float>(player_ent.getPosition().x + 8),
+                static_cast<float>(player_ent.getPosition().y + 16)
+            );
+            player.setPosition(initialPlayerPosition);
         }
         player.setFillColor({player_color.r, player_color.g, player_color.b});
 
@@ -151,8 +245,35 @@ struct Game {
                 target.draw(getColliderShape(rect));
         }
 
-        // draw player
+        // Draw all players from server snapshot (including ourselves)
+        if (connectedToServer && !networkClient.remoteEntities.empty()) {
+            for (const auto& [entityID, remoteEntity] : networkClient.remoteEntities) {
+                // If this is our entity, use local player shape but update position
+                if (entityID == networkClient.myEntityID && networkClient.myEntityID != 0) {
+                    // Server pozisyonu kullan
+                    // Server pozisyonu muhtemelen top-left, player origin (4, 16) = bottom-center
+                    // Origin offset: (4, 16) = (size.x/2, size.y)
+                    sf::Vector2f serverPos = remoteEntity.position;
+                    // Server pozisyonu top-left ise, origin'e göre ayarla
+                    // Eğer server pozisyonu center ise, direkt kullan
+                    // Şimdilik server pozisyonunu direkt kullan (server'da center olarak saklanıyor olabilir)
+                    player.setPosition(serverPos);
+                    target.draw(player);
+                } else {
+                    // Draw other players (remote entities)
+                    sf::RectangleShape remotePlayer;
+                    remotePlayer.setSize(remoteEntity.size);
+                    remotePlayer.setPosition(remoteEntity.position);
+                    remotePlayer.setFillColor(remoteEntity.color);
+                    // Set origin to match local player (bottom-center)
+                    remotePlayer.setOrigin(remoteEntity.size.x * 0.5f, remoteEntity.size.y);
+                    target.draw(remotePlayer);
+                }
+            }
+        } else {
+            // Not connected or no entities yet, draw local player
         target.draw(player);
+        }
         if (show_colliders) {
             // draw player collider
             target.draw(getColliderShape(getPlayerCollider(player)));
@@ -184,6 +305,10 @@ int main() {
     window.create(sf::VideoMode(800, 500), "LDtkLoader - SFML");
     window.setFramerateLimit(60);
 
+    // Network heartbeat timer
+    auto lastHeartbeat = std::chrono::steady_clock::now();
+    const float heartbeatInterval = 1.0f;  // 1 second
+
     // start game loop
     while(window.isOpen()) {
 
@@ -208,6 +333,26 @@ int main() {
             }
         }
 
+        // Process network packets
+        if (game.connectedToServer) {
+            game.networkClient.processPackets();
+            
+            // Send heartbeat periodically
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration<float>(now - lastHeartbeat).count();
+            
+            if (elapsed >= heartbeatInterval && game.networkClient.isConnected()) {
+                game::network::Packet heartbeat(game::network::PacketType::HEARTBEAT);
+                heartbeat.setSequence(1);
+                heartbeat.setTimestamp(static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now.time_since_epoch()
+                ).count()));
+                
+                game.networkClient.sendPacket(heartbeat);
+                lastHeartbeat = now;
+            }
+        }
+
         // UPDATE
         game.update();
 
@@ -216,6 +361,12 @@ int main() {
         game.render(window);
         window.display();
 
+    }
+    
+    // Disconnect from server
+    if (game.connectedToServer) {
+        game.networkClient.disconnect();
+        game.networkClient.shutdown();
     }
     return 0;
 }

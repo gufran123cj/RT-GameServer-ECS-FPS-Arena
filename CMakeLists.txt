@@ -55,14 +55,19 @@ set(ECS_CORE_HEADERS
     src/core/systems/MovementSystem.hpp
 )
 
-# Client executable (old code, not using ECS yet)
+# Client executable (now with network support)
+set(CLIENT_NETWORK_SOURCES
+    src/client/ClientNetworkManager.cpp
+)
+
 add_executable(LDtkSFMLGame 
     src/main.cpp 
     src/TileMap.cpp
     ${ECS_CORE_SOURCES}
+    ${CLIENT_NETWORK_SOURCES}
 )
 set_target_properties(LDtkSFMLGame PROPERTIES DEBUG_POSTFIX -d RUNTIME_OUTPUT_DIRECTORY bin)
-target_link_libraries(LDtkSFMLGame PRIVATE LDtkLoader::LDtkLoader sfml-graphics)
+target_link_libraries(LDtkSFMLGame PRIVATE LDtkLoader::LDtkLoader sfml-graphics sfml-network)
 
 # ECS Test executable
 add_executable(test_ecs 
@@ -86,11 +91,23 @@ add_executable(gameserver
 set_target_properties(gameserver PROPERTIES DEBUG_POSTFIX -d RUNTIME_OUTPUT_DIRECTORY bin)
 target_link_libraries(gameserver PRIVATE sfml-graphics sfml-network)
 
+# Client executable (test client)
+set(CLIENT_SOURCES
+    src/client/main.cpp
+    src/client/ClientNetworkManager.cpp
+)
+
+add_executable(testclient
+    ${CLIENT_SOURCES}
+)
+set_target_properties(testclient PROPERTIES DEBUG_POSTFIX -d RUNTIME_OUTPUT_DIRECTORY bin)
+target_link_libraries(testclient PRIVATE sfml-network)
+
 # SFML bin directory (where DLLs are located)
 set(SFML_BIN_DIR "D:/SFML-2.6.0/bin")
 
 # Copy SFML DLLs to output directory (Debug and Release versions)
-# For LDtkSFMLGame (client)
+# For LDtkSFMLGame (client - needs network DLL too)
 add_custom_command(TARGET LDtkSFMLGame POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SFML_BIN_DIR}/sfml-graphics-2.dll"
@@ -99,6 +116,8 @@ add_custom_command(TARGET LDtkSFMLGame POST_BUILD
         "${SFML_BIN_DIR}/sfml-window-d-2.dll"
         "${SFML_BIN_DIR}/sfml-system-2.dll"
         "${SFML_BIN_DIR}/sfml-system-d-2.dll"
+        "${SFML_BIN_DIR}/sfml-network-2.dll"
+        "${SFML_BIN_DIR}/sfml-network-d-2.dll"
         $<TARGET_FILE_DIR:LDtkSFMLGame>
     COMMENT "Copying SFML DLLs to LDtkSFMLGame output directory"
 )
@@ -116,6 +135,17 @@ add_custom_command(TARGET gameserver POST_BUILD
         "${SFML_BIN_DIR}/sfml-network-d-2.dll"
         $<TARGET_FILE_DIR:gameserver>
     COMMENT "Copying SFML DLLs to gameserver output directory"
+)
+
+# For testclient (client - needs network DLL)
+add_custom_command(TARGET testclient POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${SFML_BIN_DIR}/sfml-system-2.dll"
+        "${SFML_BIN_DIR}/sfml-system-d-2.dll"
+        "${SFML_BIN_DIR}/sfml-network-2.dll"
+        "${SFML_BIN_DIR}/sfml-network-d-2.dll"
+        $<TARGET_FILE_DIR:testclient>
+    COMMENT "Copying SFML DLLs to testclient output directory"
 )
 
 # Copy assets directory

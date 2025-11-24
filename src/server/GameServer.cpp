@@ -104,8 +104,9 @@ void GameServer::processNetwork() {
     // Handle new connections and spawn entities
     for (const auto& [addr, conn] : networkManager.getConnections()) {
         if (conn.connected && !conn.entity.isValid()) {
-            // New client, spawn entity
-            game::core::Entity entity = spawnPlayer(addr);
+            // New client, spawn entity at initial position from client
+            sf::Vector2f initialPos = networkManager.getClientInitialPosition(addr);
+            game::core::Entity entity = spawnPlayer(addr, initialPos);
             networkManager.setClientEntity(addr, entity);
         }
     }
@@ -128,14 +129,22 @@ void GameServer::sendSnapshots() {
     networkManager.broadcastPacket(packet);
 }
 
-game::core::Entity GameServer::spawnPlayer(const game::network::Address& address) {
+game::core::Entity GameServer::spawnPlayer(const game::network::Address& address, const sf::Vector2f& initialPosition) {
     // Create entity
     game::core::Entity entity = world.createEntity();
     
     // Add components
-    // Spawn at random position (for now, center of map)
-    float spawnX = 100.0f + (networkManager.getClientCount() * 50.0f);  // Spawn players side by side
-    float spawnY = 100.0f;
+    // Use initial position from client (LDtk player position) if provided, otherwise use default
+    float spawnX, spawnY;
+    if (initialPosition.x != 0 || initialPosition.y != 0) {
+        // Use client's initial position (LDtk player position)
+        spawnX = initialPosition.x;
+        spawnY = initialPosition.y;
+    } else {
+        // Default spawn position (fallback)
+        spawnX = 100.0f + (networkManager.getClientCount() * 50.0f);
+        spawnY = 100.0f;
+    }
     
     game::core::components::PositionComponent posComp(spawnX, spawnY);
     world.addComponent<game::core::components::PositionComponent>(entity.id, posComp);

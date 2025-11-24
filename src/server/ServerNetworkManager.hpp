@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <SFML/Network/UdpSocket.hpp>
+#include <SFML/System/Vector2.hpp>
 #include "../network/Address.hpp"
 #include "../network/Packet.hpp"
 #include "../core/Entity.hpp"
@@ -71,9 +72,15 @@ public:
     
     /**
      * Handle client connection
-     * Returns entity ID for the new client
+     * Returns entity for the new client (invalid if already connected)
+     * @param initialPosition Optional initial position from client
      */
-    game::core::Entity handleConnect(const game::network::Address& address);
+    game::core::Entity handleConnect(const game::network::Address& address, const sf::Vector2f& initialPosition = sf::Vector2f(0, 0));
+    
+    /**
+     * Get initial position for a client (stored during CONNECT)
+     */
+    sf::Vector2f getClientInitialPosition(const game::network::Address& address) const;
     
     /**
      * Handle client disconnect
@@ -118,6 +125,7 @@ public:
 private:
     sf::UdpSocket socket;
     std::unordered_map<game::network::Address, ClientConnection, game::network::Address::Hash> connections;
+    mutable std::unordered_map<game::network::Address, sf::Vector2f, game::network::Address::Hash> clientInitialPositions;
     uint32_t nextSequenceNumber;
     
     /**
