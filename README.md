@@ -1,182 +1,205 @@
 # RT-GameServer-ECS-FPS-Arena
 
-Topdown multiplayer oyun projesi - ECS (Entity-Component-System) mimarisi ile geliştirilmiş, LDtk map yükleme ve SFML rendering desteği olan oyun sunucusu ve istemci uygulaması.
+Top-down multiplayer game project - Game server and client application built with ECS (Entity-Component-System) architecture, featuring LDtk map loading, server-side authoritative collision detection, and SFML rendering support.
 
-## 🎮 Proje Özellikleri
+## 🎮 Project Features
 
-### ✅ Tamamlanan Özellikler
+### ✅ Completed Features
 
-- **ECS Mimarisi**: Entity-Component-System pattern ile modüler oyun mantığı
-  - Component-based entity yönetimi
+- **ECS Architecture**: Modular game logic with Entity-Component-System pattern
+  - Component-based entity management
   - System-based game logic
   - Type-safe component storage (SparseSet)
   
 - **Multiplayer Server**: Authoritative game server
-  - UDP network protokolü
+  - UDP network protocol
   - Client connection management
-  - Entity spawning ve snapshot sistemi
+  - Entity spawning and snapshot system
   - Fixed timestep game loop (60 TPS)
 
-- **Client Integration**: LDtk-SFML oyun entegrasyonu
-  - Server'a bağlanma ve otomatik entity senkronizasyonu
+- **Client Integration**: LDtk-SFML game integration
+  - Automatic connection to server and entity synchronization
   - Remote player rendering
-  - Local player movement (WASD + Ok tuşları)
+  - Local player movement (WASD + Arrow keys)
 
-- **LDtk Map System**: Level Designer Toolkit entegrasyonu
+- **LDtk Map System**: Level Designer Toolkit integration
   - Tile layer rendering
   - Entity layer loading
+  - IntGrid collision layer loading
   - Hot reload (F5)
 
-- **SFML Rendering**: 2D grafik sistemi
-  - VertexArray ile performanslı tile rendering
-  - Sprite component sistemi
-  - Camera following
+- **Collision Detection**: Authoritative server-side collision system
+  - Automatic collision loading from IntGrid "Collisions" layer
+  - Client-side collision prediction
+  - Server-side authoritative collision detection
+  - CollisionSystem (ECS) integration
 
-## 🏗️ Proje Yapısı
+- **SFML Rendering**: 2D graphics system
+  - High-performance tile rendering with VertexArray
+  - Sprite component system
+  - Camera following
+  - Collision debug visualization (F1)
+
+## 🏗️ Project Structure
 
 ```
 RT-GameServer-ECS-FPS-Arena/
 ├── src/
 │   ├── core/                    # ECS Core Framework
-│   │   ├── Entity.hpp           # Entity ID ve generation sistemi
+│   │   ├── Entity.hpp           # Entity ID and generation system
 │   │   ├── Component.hpp         # Component type traits
 │   │   ├── ComponentStorage.hpp # SparseSet-based storage
 │   │   ├── ComponentRegistry.hpp# Component type registry
 │   │   ├── System.hpp           # System base class
-│   │   ├── SystemManager.hpp    # System lifecycle yönetimi
-│   │   ├── World.hpp/cpp        # ECS World (merkezi yönetim)
+│   │   ├── SystemManager.hpp    # System lifecycle management
+│   │   ├── World.hpp/cpp        # ECS World (central management)
 │   │   ├── components/          # Game components
 │   │   │   ├── PositionComponent.hpp
 │   │   │   ├── VelocityComponent.hpp
 │   │   │   └── SpriteComponent.hpp
 │   │   └── systems/             # Game systems
 │   │       └── MovementSystem.hpp
+│   ├── game/                    # Game MVC Components
+│   │   ├── GameModel.hpp/cpp    # Game data and state
+│   │   ├── GameView.hpp/cpp     # Rendering logic
+│   │   ├── GameController.hpp/cpp # Input and game logic
+│   │   ├── GameClient.hpp/cpp   # Network client wrapper
+│   │   ├── PlayerCollision.hpp/cpp # Client-side collision
+│   │   └── GameConstants.hpp   # Game constants
 │   ├── server/                  # Game Server
-│   │   ├── GameServer.hpp/cpp   # Ana server logic
-│   │   ├── ServerNetworkManager.hpp/cpp  # UDP network yönetimi
-│   │   ├── ServerConfig.hpp     # Server konfigürasyonu
+│   │   ├── GameServer.hpp/cpp   # Main server logic
+│   │   ├── ServerNetworkManager.hpp/cpp  # UDP network management
+│   │   ├── ServerConfig.hpp     # Server configuration
+│   │   ├── CollisionHelper.hpp/cpp # Server collision utilities
+│   │   ├── systems/             # Server systems
+│   │   │   └── CollisionSystem.hpp/cpp # Authoritative collision
 │   │   └── main.cpp             # Server entry point
 │   ├── client/                  # Game Client
-│   │   ├── ClientNetworkManager.hpp/cpp  # Client network yönetimi
+│   │   ├── ClientNetworkManager.hpp/cpp  # Client network management
 │   │   └── main.cpp             # Test client
 │   ├── network/                 # Network Utilities
 │   │   ├── Address.hpp          # IP/Port wrapper
 │   │   ├── Packet.hpp           # Binary serialization
 │   │   └── PacketTypes.hpp      # Packet type enum
-│   ├── main.cpp                 # LDtkSFMLGame (ana oyun)
+│   ├── main.cpp                 # LDtkSFMLGame (main game)
 │   ├── TileMap.hpp/cpp          # LDtk map rendering
 │   └── test_ecs.cpp             # ECS test executable
 ├── include/
 │   └── common/
 │       └── types.hpp             # Common type definitions
 ├── CMakeLists.txt               # Build configuration
-└── README.md                    # Bu dosya
+└── README.md                    # This file
 ```
 
-## 📋 Gereksinimler
+## 📋 Requirements
 
-### Sistem Gereksinimleri
-- **İşletim Sistemi**: Windows 11 (PowerShell)
-- **C++ Derleyici**: MSVC (Visual Studio 2019+)
+### System Requirements
+- **Operating System**: Windows 11 (PowerShell)
+- **C++ Compiler**: MSVC (Visual Studio 2019+)
 - **CMake**: 3.15+
 
-### Bağımlılıklar
-- **[SFML](https://github.com/SFML/SFML)** 2.6.0: Grafik ve network kütüphanesi
+### Dependencies
+- **[SFML](https://github.com/SFML/SFML)** 2.6.0: Graphics and network library
   - `sfml-graphics`
   - `sfml-network`
   - `sfml-system`
   - `sfml-window`
   
-- **[LDtkLoader](https://github.com/Madour/LDtkLoader)**: LDtk dosya yükleme
-  - CMake tarafından otomatik olarak FetchContent ile indirilir
+- **[LDtkLoader](https://github.com/Madour/LDtkLoader)**: LDtk file loading
+  - Automatically downloaded via FetchContent in CMake
 
-## 🔨 Build Talimatları
+## 🔨 Build Instructions
 
-### 1. Projeyi Klonlayın
+### 1. Clone the Project
 ```powershell
 git clone <repository-url>
 cd RT-GameServer-ECS-FPS-Arena
 ```
 
-### 2. Build Dizini Oluşturun
+### 2. Create Build Directory
 ```powershell
 mkdir build
 cd build
 ```
 
-### 3. CMake Yapılandırması
+### 3. CMake Configuration
 ```powershell
 cmake ..
 ```
 
-### 4. Projeyi Derleyin
+### 4. Build the Project
 ```powershell
-# Tüm projeleri derle
+# Build all projects
 cmake --build . --config Release
 
-# Veya spesifik hedef
+# Or specific target
 cmake --build . --config Release --target gameserver
 cmake --build . --config Release --target LDtkSFMLGame
 cmake --build . --config Release --target testclient
 ```
 
-### 5. Çalıştırma
+### 5. Run
 ```powershell
-# Server'ı başlat
-.\Release\gameserver.exe
+# Start server
+.\bin\Release\gameserver.exe
 
-# Client'ı başlat (ayrı terminal)
-.\Release\LDtkSFMLGame.exe
+# Start client (separate terminal)
+.\bin\Release\LDtkSFMLGame.exe
 ```
 
-## 🎮 Kullanım
+## 🎮 Usage
 
-### Ekran Görüntüleri
+### Screenshots
 
-![Multiplayer Game Screen](images/mp_screen.png)
+![Multiplayer Game Screen](images/gamescreenshot.png)
 
-*İki client'ın aynı anda bağlı olduğu multiplayer oyun görünümü - Yeni map.ldtk entegrasyonu ile collision detection aktif*
+*Multiplayer game view with two clients connected simultaneously - New map.ldtk integration with active collision detection*
 
-### Server Başlatma
+### Starting the Server
 ```powershell
-cd build\Release
+cd build\bin\Release
 .\gameserver.exe
 ```
 
-Server varsayılan olarak `127.0.0.1:7777` adresinde dinler. Log çıktısı:
+The server listens on `127.0.0.1:7777` by default. Log output:
 ```
-[INFO] Server başlatılıyor...
-[INFO] Network manager başlatıldı
-[INFO] Server 127.0.0.1:7777 adresinde dinliyor
-[INFO] Client bağlandı: 127.0.0.1:XXXXX
-[INFO] Player entity oluşturuldu: EntityID=1
+GameServer initialized:
+  Port: 7777
+  Tick Rate: 60 Hz
+  Snapshot Rate: 20 Hz
+  Max Players: 128
+Server: Loaded 200 collision cells from IntGrid layer
+Server: Total colliders loaded: 200
+GameServer running...
 ```
 
-### Client Bağlantısı
-`LDtkSFMLGame.exe` çalıştırıldığında otomatik olarak server'a bağlanır ve oyuncu karakteri server'da spawn edilir.
+### Client Connection
+When `LDtkSFMLGame.exe` is run, it automatically connects to the server and spawns the player character on the server.
 
-**Kontroller:**
-- **WASD** veya **Ok Tuşları**: Karakter hareketi
+**Controls:**
+- **WASD** or **Arrow Keys**: Character movement
+- **F1**: Collision debug view (show/hide colliders)
 - **F5**: LDtk world reload
+- **ESC**: Close game
 
 ### Multiplayer Test
-`test_multiplayer.ps1` script'i ile birden fazla client test edebilirsiniz:
+You can test with multiple clients using the `test_multiplayer.ps1` script:
 ```powershell
 .\test_multiplayer.ps1
 ```
 
-Bu script:
-1. Server'ı başlatır
-2. 2 saniye bekler
-3. İlk client'ı başlatır
-4. 2 saniye bekler
-5. İkinci client'ı başlatır
+This script:
+1. Starts the server
+2. Waits 2 seconds
+3. Starts the first client
+4. Waits 2 seconds
+5. Starts the second client
 
-## 🏛️ Mimari Detaylar
+## 🏛️ Architecture Details
 
 ### ECS (Entity-Component-System)
 
-**Entity**: Sadece ID ve generation içeren hafif yapı
+**Entity**: Lightweight structure containing only ID and generation
 ```cpp
 struct Entity {
     EntityID id;
@@ -184,7 +207,7 @@ struct Entity {
 };
 ```
 
-**Component**: Veri yapıları (Position, Velocity, Sprite)
+**Component**: Data structures (Position, Velocity, Sprite)
 ```cpp
 struct PositionComponent {
     sf::Vector2f position;
@@ -198,84 +221,107 @@ class MovementSystem : public System {
 };
 ```
 
-**World**: Merkezi ECS yönetimi
+**World**: Central ECS management
 ```cpp
 World world;
 auto entity = world.createEntity();
 world.addComponent<PositionComponent>(entity, {100, 200});
 ```
 
-### Network Protokolü
+### Network Protocol
 
 **Packet Types:**
-- `CONNECT`: Client server'a bağlanma isteği
-- `CONNECT_ACK`: Server bağlantı onayı
-- `SNAPSHOT`: Server'dan client'a game state
-- `DISCONNECT`: Bağlantı kopma
+- `CONNECT`: Client connection request to server
+- `CONNECT_ACK`: Server connection acknowledgment
+- `INPUT`: Client input (velocity)
+- `SNAPSHOT`: Game state from server to client
+- `HEARTBEAT`: Keep-alive packets
+- `DISCONNECT`: Connection termination
 
-**Snapshot Sistemi:**
-- Server her tick'te (60 TPS) game state'i serialize eder
-- Client snapshot'ları alır ve remote entity'leri render eder
-- Client prediction henüz implement edilmedi (gelecek özellik)
+**Snapshot System:**
+- Server serializes game state every tick (60 TPS)
+- Client receives snapshots and renders remote entities
+- Client prediction implemented for smooth movement
 
 ### Server Authority
 
-Server tüm game state'i kontrol eder:
+Server controls all game state:
 - Entity spawning
 - Position updates
-- Collision detection (gelecek özellik)
+- **Collision detection** (authoritative)
+- Movement validation
 
-Client sadece:
-- Input gönderir (gelecek özellik)
-- Snapshot'ları alır ve render eder
+Client:
+- Sends input (WASD/Arrow keys)
+- Receives snapshots and renders
+- Client-side collision prediction (for smooth movement)
 
-## 🚧 Geliştirme Durumu
+### Collision System
 
-### MVP (Minimum Viable Product) - Devam Ediyor
+**Server-Side (Authoritative):**
+- Loads collisions from LDtk IntGrid "Collisions" layer
+- CollisionSystem runs before MovementSystem
+- Prevents entities from moving into colliders
+- Validates all movement
+
+**Client-Side (Prediction):**
+- Loads same collision data from LDtk
+- Predicts collisions before sending input
+- Prevents sending input that would cause collision
+- Handles server position corrections
+
+## 🚧 Development Status
+
+### MVP (Minimum Viable Product) - In Progress
 - [x] ECS Core framework
 - [x] Basic server-client connection
 - [x] Entity spawning
 - [x] Snapshot system
 - [x] LDtk integration
-- [ ] Input handling (client → server)
-- [ ] Collision system
-- [ ] Player movement synchronization
+- [x] Input handling (client → server)
+- [x] Collision system (server-side authoritative)
+- [x] Player movement synchronization
+- [x] IntGrid collision layer loading
 - [ ] Lag compensation
+- [ ] Client prediction refinement
 
-### Gelecek Özellikler
-- [ ] Client prediction
+### Future Features
+- [ ] Client prediction refinement
 - [ ] Interpolation
 - [ ] Entity replication
 - [ ] Game mechanics (shooting, health, etc.)
-- [ ] Map collision integration
 - [ ] Performance optimization
+- [ ] Multiple level support
 
-## 🐛 Bilinen Sorunlar
+## 🐛 Known Issues
 
-- Client'ta karakter görünürlüğü sorunları (düzeltme aşamasında)
-- Input handling henüz implement edilmedi
-- Collision detection server-side yok
-- Lag compensation yok
+- Collision detection sometimes triggers too early (under improvement)
+- Player may occasionally get stuck when entering collider (under fix)
+- Lag compensation not implemented
 
-## 📝 Notlar
+## 📝 Notes
 
-- Proje C++17 standardı kullanıyor
-- SFML DLL'leri otomatik olarak build dizinine kopyalanır
-- Server ve client aynı network protokolünü kullanır
-- LDtk map dosyaları `assets/` dizininde olmalı
+- Project uses C++17 standard
+- SFML DLLs are automatically copied to build directory
+- Server and client use the same network protocol
+- LDtk map files must be in `assets/maps/` directory
+- Tileset files must be in `assets/tilesets/` directory
+- Collisions are automatically loaded from IntGrid "Collisions" layer
+- Player position is logged to console every 5 seconds (for debugging)
+- All collision positions are logged once at startup
 
-## 📄 Lisans
+## 📄 License
 
-Bu proje özgürce kullanılabilir. Orijinal LDtk-SFML-Game projesinden türetilmiştir.
+This project is freely usable. Derived from the original LDtk-SFML-Game project.
 
-## 🤝 Katkıda Bulunma
+## 🤝 Contributing
 
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
-5. Pull Request açın
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-**Geliştirici Notu**: Bu proje aktif geliştirme aşamasındadır. MVP tamamlanana kadar API değişiklikleri olabilir.
+**Developer Note**: This project is under active development. API changes may occur until MVP is completed.
