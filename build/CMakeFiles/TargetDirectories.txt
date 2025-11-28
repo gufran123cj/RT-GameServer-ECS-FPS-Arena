@@ -1,7 +1,0 @@
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/CMakeFiles/LDtkSFMLGame.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/CMakeFiles/INSTALL.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/CMakeFiles/ZERO_CHECK.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-build/CMakeFiles/LDtkLoader.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-build/CMakeFiles/INSTALL.dir
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-build/CMakeFiles/ALL_BUILD.dir
