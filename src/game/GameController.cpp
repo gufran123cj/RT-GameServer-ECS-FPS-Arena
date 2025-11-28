@@ -1,5 +1,5 @@
 #include "GameController.hpp"
-#include <iostream>
+#include "GameConstants.hpp"
 #include <chrono>
 
 namespace game::client {
@@ -63,8 +63,7 @@ void GameController::handleInput(GameModel& model, const sf::Window& window) {
     }
     
     float velX = 0.0f, velY = 0.0f;
-    const float moveSpeed = 60.0f;
-    const float deltaTime = 1.0f / 60.0f;
+    const float moveSpeed = Constants::PLAYER_MOVE_SPEED;
     
     bool wPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
     bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
@@ -75,23 +74,6 @@ void GameController::handleInput(GameModel& model, const sf::Window& window) {
     bool leftPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Left);
     bool rightPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Right);
     
-    // Log key presses (only when a key is actually pressed)
-    static bool lastW = false, lastS = false, lastA = false, lastD = false;
-    static bool lastUp = false, lastDown = false, lastLeft = false, lastRight = false;
-    
-    if ((wPressed && !lastW) || (aPressed && !lastA) || (sPressed && !lastS) || (dPressed && !lastD) ||
-        (upPressed && !lastUp) || (downPressed && !lastDown) || (leftPressed && !lastLeft) || (rightPressed && !lastRight)) {
-        std::cout << "Input from playerId: " << model.networkClient.myEntityID << std::endl;
-    }
-    
-    lastW = wPressed;
-    lastS = sPressed;
-    lastA = aPressed;
-    lastD = dPressed;
-    lastUp = upPressed;
-    lastDown = downPressed;
-    lastLeft = leftPressed;
-    lastRight = rightPressed;
     
     if (upPressed || wPressed)
         velY = -moveSpeed;
@@ -134,34 +116,25 @@ void GameController::handleInput(GameModel& model, const sf::Window& window) {
         inputPacket.write(velY);
         
         model.networkClient.sendPacket(inputPacket);
-    } else {
-        // Debug: Log why INPUT is not being sent
-        static int debugCounter = 0;
-        if (debugCounter++ % 60 == 0 && (velX != 0 || velY != 0)) {
-            std::cout << "[CLIENT] NOT sending INPUT - connected: " << model.connectedToServer
-                      << ", isConnected: " << model.networkClient.isConnected()
-                      << ", serverPositionInvalid: " << model.serverPositionInvalid
-                      << ", myEntityID: " << model.networkClient.myEntityID << std::endl;
-        }
     }
 }
 
 bool GameController::wouldCollide(const GameModel& model, float velX, float velY) {
-    const float moveSpeed = 60.0f;
-    const float deltaTime = 1.0f / 60.0f;
+    const float moveSpeed = Constants::PLAYER_MOVE_SPEED;
+    const float deltaTime = Constants::FIXED_DELTA_TIME;
     
     // Mevcut pozisyonu al
     sf::Vector2f currentPos = model.player.getPosition();
     
     // Bir sonraki pozisyonu hesapla (daha büyük adım - birkaç frame ilerisi)
-    const float checkDistance = moveSpeed * deltaTime * 2.0f;  // 2 frame ilerisi
+    const float checkDistance = moveSpeed * deltaTime * Constants::COLLISION_CHECK_FRAMES_AHEAD;
     sf::Vector2f nextPos = currentPos + sf::Vector2f(
         velX != 0 ? (velX > 0 ? checkDistance : -checkDistance) : 0.0f,
         velY != 0 ? (velY > 0 ? checkDistance : -checkDistance) : 0.0f
     );
     
     // Check if would collide at next position
-    return PlayerCollision::wouldCollideAt(nextPos, {8.0f, 16.0f}, model.colliders);
+    return PlayerCollision::wouldCollideAt(nextPos, Constants::PLAYER_SIZE, model.colliders);
 }
 
 } // namespace game::client

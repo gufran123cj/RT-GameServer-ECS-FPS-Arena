@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include "../System.hpp"
 #include "../World.hpp"
 #include "../components/PositionComponent.hpp"
@@ -31,7 +30,6 @@ public:
             const auto& velocity = *pair.second;
             auto* position = positions.get(entityID);
             if (position) {
-                std::cout << "Movement for playerId: " << entityID << std::endl;
                 position->position += velocity.velocity * deltaTime;
             }
         }

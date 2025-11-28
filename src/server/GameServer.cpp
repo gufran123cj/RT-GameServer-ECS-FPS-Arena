@@ -32,7 +32,6 @@ bool GameServer::initialize(const ServerConfig& cfg) {
     running = true;
     lastUpdateTime = std::chrono::steady_clock::now();
     lastSnapshotTime = lastUpdateTime;
-    lastDebugLogTime = lastUpdateTime;
     
     std::cout << "GameServer initialized:" << std::endl;
     std::cout << "  Port: " << config.port << std::endl;
@@ -88,55 +87,6 @@ void GameServer::run() {
             lastSnapshotTime = currentTime;
         }
         
-        // Debug log: Print entity positions every 5 seconds
-        auto debugLogElapsed = std::chrono::duration<float>(
-            currentTime - lastDebugLogTime
-        ).count();
-        
-        if (debugLogElapsed >= 5.0f) {
-            std::cout << "\n=== SERVER DEBUG LOG (Entity Positions) ===" << std::endl;
-            std::cout << "Total connected clients: " << networkManager.getClientCount() << std::endl;
-            
-            // List all connections
-            for (const auto& [addr, conn] : networkManager.getConnections()) {
-                if (conn.connected) {
-                    std::cout << "  Client: " << addr.toString() 
-                              << " | Entity ID: " << (conn.entity.isValid() ? std::to_string(conn.entity.id) : "INVALID")
-                              << std::endl;
-                }
-            }
-            
-            auto entities = world.getEntitiesWith<
-                game::core::components::PositionComponent,
-                game::core::components::VelocityComponent
-            >();
-            
-            std::cout << "Total entities with Position+Velocity: " << entities.size() << std::endl;
-            
-            for (game::core::Entity::ID entityID : entities) {
-                const auto* pos = world.getComponent<game::core::components::PositionComponent>(entityID);
-                const auto* vel = world.getComponent<game::core::components::VelocityComponent>(entityID);
-                
-                if (pos && vel) {
-                    // Find which client owns this entity
-                    std::string clientInfo = "Unknown";
-                    for (const auto& [addr, conn] : networkManager.getConnections()) {
-                        if (conn.connected && conn.entity.isValid() && conn.entity.id == entityID) {
-                            clientInfo = addr.toString();
-                            break;
-                        }
-                    }
-                    
-                    std::cout << "  Entity ID: " << entityID 
-                              << " | Client: " << clientInfo
-                              << " | Position: (" << pos->position.x << ", " << pos->position.y << ")"
-                              << " | Velocity: (" << vel->velocity.x << ", " << vel->velocity.y << ")"
-                              << std::endl;
-                }
-            }
-            std::cout << "=== END DEBUG LOG ===\n" << std::endl;
-            lastDebugLogTime = currentTime;
-        }
         
         // Small sleep to prevent 100% CPU usage
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -166,7 +116,6 @@ void GameServer::processNetwork() {
                 
                 float velX = 0, velY = 0;
                 if (packet.read(velX) && packet.read(velY)) {
-                    std::cout << "Input from playerId: " << conn.entity.id << std::endl;
                     if (velComp) {
                         velComp->velocity.x = velX;
                         velComp->velocity.y = velY;
@@ -194,7 +143,6 @@ void GameServer::processNetwork() {
             game::core::Entity entity = spawnPlayer(addr, initialPos);
             
             networkManager.setClientEntity(addr, entity);
-            std::cout << "New playerId: " << entity.id << std::endl;
             networkManager.sendConnectAck(addr, entity.id);
         }
     }
@@ -240,11 +188,10 @@ game::core::Entity GameServer::spawnPlayer(const game::network::Address& address
     game::core::components::VelocityComponent velComp(0.0f, 0.0f);
     world.addComponent<game::core::components::VelocityComponent>(entity.id, velComp);
     
-    game::core::components::SpriteComponent spriteComp({8.0f, 16.0f}, sf::Color::Green);
+    // Use same player size as client
+    constexpr sf::Vector2f PLAYER_SIZE = {8.0f, 16.0f};
+    game::core::components::SpriteComponent spriteComp(PLAYER_SIZE, sf::Color::Green);
     world.addComponent<game::core::components::SpriteComponent>(entity.id, spriteComp);
-    
-    std::cout << "Spawned player entity " << entity.id 
-              << " for client " << address.toString() << std::endl;
     
     return entity;
 }

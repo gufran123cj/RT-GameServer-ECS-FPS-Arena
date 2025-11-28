@@ -6,6 +6,7 @@
 #include "game/GameModel.hpp"
 #include "game/GameView.hpp"
 #include "game/GameController.hpp"
+#include "game/GameConstants.hpp"
 #include "network/Packet.hpp"
 #include "network/PacketTypes.hpp"
 
@@ -30,15 +31,12 @@ int main() {
 
     // Create window
     sf::RenderWindow window;
-    window.create(sf::VideoMode(800, 500), "LDtkLoader - SFML");
-    window.setFramerateLimit(60);
+    window.create(sf::VideoMode(Constants::WINDOW_WIDTH, Constants::WINDOW_HEIGHT), "LDtkLoader - SFML");
+    window.setFramerateLimit(Constants::WINDOW_FPS_LIMIT);
 
     // Network heartbeat timer
     auto lastHeartbeat = std::chrono::steady_clock::now();
-    const float heartbeatInterval = 1.0f;  // 1 second
-    
-    // Debug log timer
-    model.lastDebugLogTime = std::chrono::steady_clock::now();
+    const float heartbeatInterval = Constants::HEARTBEAT_INTERVAL;
 
     // Main game loop
     while(window.isOpen()) {
@@ -89,41 +87,6 @@ int main() {
         
         // Update camera
         GameView::updateCamera(model);
-
-        // Debug log: Print positions every 5 seconds
-        auto now = std::chrono::steady_clock::now();
-        auto debugLogElapsed = std::chrono::duration<float>(
-            now - model.lastDebugLogTime
-        ).count();
-        
-        if (debugLogElapsed >= 5.0f) {
-            std::cout << "\n=== CLIENT DEBUG LOG (Player Positions) ===" << std::endl;
-            std::cout << "  Local Player Position: (" << model.player.getPosition().x 
-                      << ", " << model.player.getPosition().y << ")" << std::endl;
-            std::cout << "  My Entity ID: " << model.networkClient.myEntityID << std::endl;
-            std::cout << "  Connected to Server: " << (model.connectedToServer ? "Yes" : "No") << std::endl;
-            
-            if (model.connectedToServer && model.networkClient.myEntityID != game::INVALID_ENTITY) {
-                auto it = model.networkClient.remoteEntities.find(model.networkClient.myEntityID);
-                if (it != model.networkClient.remoteEntities.end()) {
-                    std::cout << "  Server Position (from snapshot): (" 
-                              << it->second.position.x << ", " << it->second.position.y << ")" << std::endl;
-                    std::cout << "  Server Entity Size: (" 
-                              << it->second.size.x << ", " << it->second.size.y << ")" << std::endl;
-                } else {
-                    std::cout << "  Server Position: NOT FOUND in snapshot!" << std::endl;
-                }
-            }
-            
-            std::cout << "  Total Remote Entities: " << model.networkClient.remoteEntities.size() << std::endl;
-            for (const auto& [entityID, remoteEntity] : model.networkClient.remoteEntities) {
-                std::cout << "    Entity ID: " << entityID 
-                          << " | Position: (" << remoteEntity.position.x 
-                          << ", " << remoteEntity.position.y << ")" << std::endl;
-            }
-            std::cout << "=== END CLIENT DEBUG LOG ===\n" << std::endl;
-            model.lastDebugLogTime = now;
-        }
 
         // Render game
         window.clear();

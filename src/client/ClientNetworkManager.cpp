@@ -24,10 +24,6 @@ bool ClientNetworkManager::initialize() {
     }
     
     socket.setBlocking(false);  // Non-blocking mode
-    
-    unsigned short localPort = socket.getLocalPort();
-    std::cout << "Client socket bound to port " << localPort << std::endl;
-    
     return true;
 }
 

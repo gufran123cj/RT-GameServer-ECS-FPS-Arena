@@ -1,4 +1,5 @@
 #include "GameModel.hpp"
+#include "GameConstants.hpp"
 #include <LDtkLoader/Project.hpp>
 #include <iostream>
 
@@ -49,18 +50,17 @@ void GameModel::init(const ldtk::Project& ldtk, bool reloading) {
     auto& player_color = player_ent.getField<ldtk::Color>("color").value();
     
     // Initialize player shape
-    player.setSize({8, 16});
-    player.setOrigin(4, 16);
+    player.setSize(Constants::PLAYER_SIZE);
+    player.setOrigin(Constants::PLAYER_SIZE.x * 0.5f, Constants::PLAYER_SIZE.y);
     if (!reloading) {
-        // Use fixed position (176, 256) as requested by user
-        initialPlayerPosition = sf::Vector2f(150.0f, 100.0f);
+        initialPlayerPosition = Constants::PLAYER_INITIAL_POSITION;
         player.setPosition(initialPlayerPosition);
     }
     player.setFillColor({player_color.r, player_color.g, player_color.b});
     
     // Create camera view
-    camera.setSize({400, 250});
-    camera.zoom(0.55f);
+    camera.setSize(Constants::CAMERA_SIZE);
+    camera.zoom(Constants::CAMERA_ZOOM);
     camera.setCenter(player.getPosition());
     camera_bounds.left = 0;
     camera_bounds.top = 0;

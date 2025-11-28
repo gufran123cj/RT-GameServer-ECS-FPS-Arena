@@ -5,7 +5,6 @@ namespace game::client {
 
 void GameClient::onConnectAck(game::core::Entity::ID entityID) {
     myEntityID = entityID;
-    std::cout << "localPlayerId: " << myEntityID << std::endl;
 }
 
 void GameClient::onSnapshot(game::network::Packet& packet) {
@@ -41,7 +40,6 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
 }
 
 void GameClient::onDisconnect() {
-    std::cout << "Disconnected from server" << std::endl;
     remoteEntities.clear();
     myEntityID = 0;
 }

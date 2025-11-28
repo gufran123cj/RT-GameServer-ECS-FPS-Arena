@@ -35,7 +35,6 @@ public:
     
     // Debug
     bool show_colliders = false;
-    std::chrono::steady_clock::time_point lastDebugLogTime;
     
     // Internal state for collision handling
     sf::Vector2f lastValidPosition;
