@@ -23,7 +23,7 @@ void GameController::updatePlayerPosition(GameModel& model) {
         return;
     }
     
-    if (model.networkClient.myEntityID == game::INVALID_ENTITY || model.networkClient.myEntityID == 0) {
+    if (model.networkClient.myEntityID == game::INVALID_ENTITY) {
         return;
     }
     
@@ -119,11 +119,11 @@ void GameController::handleInput(GameModel& model, const sf::Window& window) {
     
     // CRITICAL: Only send INPUT if we have a valid entity ID assigned by the server
     // Each client should ONLY control its own entity, not others
+    // NOTE: Entity ID can be 0 (first client), so we only check for INVALID_ENTITY
     if (model.connectedToServer && 
         model.networkClient.isConnected() && 
         !model.serverPositionInvalid &&
-        model.networkClient.myEntityID != game::INVALID_ENTITY &&
-        model.networkClient.myEntityID != 0) {
+        model.networkClient.myEntityID != game::INVALID_ENTITY) {
         
         game::network::Packet inputPacket(game::network::PacketType::INPUT);
         inputPacket.setSequence(1);

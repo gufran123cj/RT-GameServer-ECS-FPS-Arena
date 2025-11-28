@@ -53,7 +53,7 @@ void GameModel::init(const ldtk::Project& ldtk, bool reloading) {
     player.setOrigin(4, 16);
     if (!reloading) {
         // Use fixed position (176, 256) as requested by user
-        initialPlayerPosition = sf::Vector2f(184.0f, 272.0f);
+        initialPlayerPosition = sf::Vector2f(150.0f, 100.0f);
         player.setPosition(initialPlayerPosition);
     }
     player.setFillColor({player_color.r, player_color.g, player_color.b});

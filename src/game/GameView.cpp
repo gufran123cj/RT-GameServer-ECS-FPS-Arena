@@ -26,7 +26,8 @@ void GameView::render(sf::RenderTarget& target, GameModel& model) {
         for (const auto& [entityID, remoteEntity] : model.networkClient.remoteEntities) {
             // CRITICAL: Skip our own entity (already drawn above as model.player)
             // Bu kontrol çok önemli - kendi entity'mizi iki kez çizmemek için
-            if (entityID == model.networkClient.myEntityID && model.networkClient.myEntityID != 0) {
+            // NOTE: Entity ID can be 0 (first client), so we only check for equality
+            if (entityID == model.networkClient.myEntityID && model.networkClient.myEntityID != game::INVALID_ENTITY) {
                 continue;
             }
             
