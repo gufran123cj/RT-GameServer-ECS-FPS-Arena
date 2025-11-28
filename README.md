@@ -131,6 +131,12 @@ cmake --build . --config Release --target testclient
 
 ## 🎮 Kullanım
 
+### Ekran Görüntüleri
+
+![Multiplayer Game Screen](images/mp_screen.png)
+
+*İki client'ın aynı anda bağlı olduğu multiplayer oyun görünümü - Yeni map.ldtk entegrasyonu ile collision detection aktif*
+
 ### Server Başlatma
 ```powershell
 cd build\Release

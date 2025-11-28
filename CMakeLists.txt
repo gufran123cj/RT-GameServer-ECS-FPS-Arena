@@ -92,6 +92,8 @@ set(SERVER_SOURCES
     src/server/main.cpp
     src/server/GameServer.cpp
     src/server/ServerNetworkManager.cpp
+    src/server/CollisionHelper.cpp
+    src/server/systems/CollisionSystem.cpp
 )
 
 add_executable(gameserver
@@ -99,7 +101,7 @@ add_executable(gameserver
     ${ECS_CORE_SOURCES}
 )
 set_target_properties(gameserver PROPERTIES DEBUG_POSTFIX -d RUNTIME_OUTPUT_DIRECTORY bin)
-target_link_libraries(gameserver PRIVATE sfml-graphics sfml-network)
+target_link_libraries(gameserver PRIVATE LDtkLoader::LDtkLoader sfml-graphics sfml-network)
 
 # Client executable (test client)
 set(CLIENT_SOURCES
