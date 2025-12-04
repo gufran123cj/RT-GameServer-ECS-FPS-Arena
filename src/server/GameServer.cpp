@@ -362,16 +362,66 @@ void GameServer::respawnPlayer(game::core::Entity::ID entityID, const sf::Vector
 
 sf::Vector2f GameServer::findSafeSpawnPosition() {
     // Try to find a safe spawn position (no collision)
-    // Use random positions within map bounds
-    // Map bounds: approximate from colliders or use fixed bounds
-    // For now, use fixed bounds (can be improved with map size detection)
-    const float MAP_MIN_X = 50.0f;
-    const float MAP_MAX_X = 1450.0f;
-    const float MAP_MIN_Y = 50.0f;
-    const float MAP_MAX_Y = 1450.0f;
+    // Calculate map bounds from LDtk world size
+    float MAP_MIN_X = 50.0f;
+    float MAP_MAX_X = 462.0f;  // 512 - 50 (padding)
+    float MAP_MIN_Y = 50.0f;
+    float MAP_MAX_Y = 206.0f;  // 256 - 50 (padding)
+    
+    // Try to get map bounds from LDtk project (same file used in loadColliders)
+    try {
+        ldtk::Project project;
+        project.loadFromFile("assets/maps/map.ldtk");
+        const auto& world = project.getWorld();
+        try {
+            const auto& level = world.getLevel("World_Level_0");
+            // Level size is the map dimensions
+            const float PADDING = 50.0f;
+            MAP_MIN_X = PADDING;
+            MAP_MIN_Y = PADDING;
+            MAP_MAX_X = static_cast<float>(level.size.x) - PADDING;  // Map width - padding
+            MAP_MAX_Y = static_cast<float>(level.size.y) - PADDING;  // Map height - padding
+            
+            std::cout << "Spawn bounds from LDtk: X=[" << MAP_MIN_X << ", " << MAP_MAX_X 
+                      << "], Y=[" << MAP_MIN_Y << ", " << MAP_MAX_Y << "] (Map size: " 
+                      << level.size.x << "x" << level.size.y << ")" << std::endl;
+        } catch (const std::exception&) {
+            // Level not found, use defaults
+        }
+    } catch (const std::exception& ex) {
+        std::cerr << "WARNING: Could not load map bounds from LDtk: " << ex.what() << std::endl;
+        // If LDtk load fails, calculate bounds from colliders
+        if (!colliders.empty()) {
+            float minX = colliders[0].left;
+            float maxX = colliders[0].left + colliders[0].width;
+            float minY = colliders[0].top;
+            float maxY = colliders[0].top + colliders[0].height;
+            
+            for (const auto& collider : colliders) {
+                minX = std::min(minX, collider.left);
+                maxX = std::max(maxX, collider.left + collider.width);
+                minY = std::min(minY, collider.top);
+                maxY = std::max(maxY, collider.top + collider.height);
+            }
+            
+            // Add padding around colliders, but ensure we stay within reasonable bounds
+            const float PADDING = 50.0f;
+            MAP_MIN_X = std::max(0.0f, minX - PADDING);
+            MAP_MAX_X = maxX + PADDING;
+            MAP_MIN_Y = std::max(0.0f, minY - PADDING);
+            MAP_MAX_Y = maxY + PADDING;
+            
+            std::cout << "Spawn bounds from colliders: X=[" << MAP_MIN_X << ", " << MAP_MAX_X 
+                      << "], Y=[" << MAP_MIN_Y << ", " << MAP_MAX_Y << "]" << std::endl;
+        }
+    }
+    
+    // Ensure valid bounds
+    if (MAP_MAX_X <= MAP_MIN_X) MAP_MAX_X = MAP_MIN_X + 100.0f;
+    if (MAP_MAX_Y <= MAP_MIN_Y) MAP_MAX_Y = MAP_MIN_Y + 100.0f;
     
     const sf::Vector2f PLAYER_SIZE = {3.0f, 5.0f};
-    const int MAX_ATTEMPTS = 50;
+    const int MAX_ATTEMPTS = 100;  // Increased attempts for better spawn position finding
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -381,15 +431,35 @@ sf::Vector2f GameServer::findSafeSpawnPosition() {
     for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
         sf::Vector2f candidatePos(distX(gen), distY(gen));
         
-        // Check if position is safe (no collision)
+        // Check if position is safe (no collision with colliders)
         if (!CollisionHelper::wouldCollideAt(candidatePos, PLAYER_SIZE, colliders)) {
+            std::cout << "Found safe spawn position: (" << candidatePos.x << ", " << candidatePos.y << ")" << std::endl;
             return candidatePos;
         }
     }
     
-    // Fallback: return a default position if no safe position found
-    std::cout << "WARNING: Could not find safe spawn position after " << MAX_ATTEMPTS << " attempts, using default" << std::endl;
-    return sf::Vector2f(100.0f, 100.0f);
+    // Fallback: try a few known safe positions (top-left area of map, visible on screen)
+    std::vector<sf::Vector2f> fallbackPositions = {
+        sf::Vector2f(100.0f, 100.0f),
+        sf::Vector2f(150.0f, 100.0f),
+        sf::Vector2f(200.0f, 100.0f),
+        sf::Vector2f(100.0f, 150.0f),
+        sf::Vector2f(150.0f, 150.0f),
+        sf::Vector2f(200.0f, 150.0f),
+        sf::Vector2f(250.0f, 100.0f),
+        sf::Vector2f(300.0f, 100.0f)
+    };
+    
+    for (const auto& pos : fallbackPositions) {
+        if (!CollisionHelper::wouldCollideAt(pos, PLAYER_SIZE, colliders)) {
+            std::cout << "WARNING: Using fallback spawn position (" << pos.x << ", " << pos.y << ")" << std::endl;
+            return pos;
+        }
+    }
+    
+    // Last resort: return a safe position near top-left (should be visible)
+    std::cout << "WARNING: Could not find safe spawn position, using default top-left position" << std::endl;
+    return sf::Vector2f(150.0f, 100.0f);
 }
 
 } // namespace game::server
