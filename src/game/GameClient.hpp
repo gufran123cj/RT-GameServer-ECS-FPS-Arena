@@ -28,6 +28,8 @@ public:
         float health = 10.0f;      // Current health
         float maxHealth = 10.0f;  // Maximum health
         bool hasHealth = false;   // Whether entity has health component
+        int killCount = 0;        // Kill count
+        bool hasKillCounter = false;  // Whether entity has kill counter component
     };
     
     std::map<game::core::Entity::ID, RemoteEntity> remoteEntities;

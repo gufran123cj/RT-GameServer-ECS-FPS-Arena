@@ -32,6 +32,11 @@ public:
      * Render "YOU DIED" message
      */
     static void renderDeathMessage(sf::RenderTarget& target, const GameModel& model);
+    
+    /**
+     * Render kill count (top-right corner)
+     */
+    static void renderKillCount(sf::RenderTarget& target, const GameModel& model);
 };
 
 } // namespace game::client

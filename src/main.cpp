@@ -79,13 +79,8 @@ int main() {
         // Process network packets
         GameController::processNetwork(model);
         
-        // Check if player died (disconnected by server)
-        if (model.connectedToServer && !model.networkClient.isConnected()) {
-            std::cout << "Player died! Quitting game..." << std::endl;
-            model.shouldQuit = true;
-            window.close();
-            break;
-        }
+        // Note: Player death now triggers respawn instead of disconnection
+        // Game continues even when player dies
         
         // Send heartbeat periodically
         if (model.connectedToServer) {

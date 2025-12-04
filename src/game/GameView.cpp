@@ -82,6 +82,7 @@ void GameView::render(sf::RenderTarget& target, GameModel& model) {
     target.setView(defaultView);
     
     renderHealthBar(target, model);
+    renderKillCount(target, model);
     
     if (model.playerIsDead) {
         renderDeathMessage(target, model);
@@ -196,6 +197,34 @@ void GameView::renderDeathMessage(sf::RenderTarget& target, const GameModel& mod
     // "YOU DIED" text would go here if we had a font
     // For now, we'll use a simple rectangle as placeholder
     // TODO: Add font rendering for "YOU DIED" text
+}
+
+void GameView::renderKillCount(sf::RenderTarget& target, const GameModel& model) {
+    if (!model.connectedToServer) {
+        return;  // Don't show kill count if not connected
+    }
+    
+    // Simple text representation using rectangles (since we don't have font)
+    // Position: top-right corner
+    sf::Vector2u windowSize = target.getSize();
+    const float boxX = static_cast<float>(windowSize.x) - 120.0f;
+    const float boxY = 10.0f;
+    const float boxWidth = 110.0f;
+    const float boxHeight = 30.0f;
+    
+    // Background box
+    sf::RectangleShape background;
+    background.setSize(sf::Vector2f(boxWidth, boxHeight));
+    background.setPosition(boxX, boxY);
+    background.setFillColor(sf::Color(0, 0, 0, 180));  // Semi-transparent black
+    background.setOutlineThickness(2.0f);
+    background.setOutlineColor(sf::Color::White);
+    target.draw(background);
+    
+    // Kill count text would go here if we had a font
+    // For now, we'll use colored rectangles to represent the number
+    // TODO: Add font rendering for kill count display
+    // Format: "Kills: X"
 }
 
 } // namespace game::client

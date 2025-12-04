@@ -98,9 +98,22 @@ private:
     
     /**
      * Spawn player entity for new client
-     * @param initialPosition Initial position from client (LDtk player position)
+     * @param initialPosition Ignored - always uses random safe spawn position
      */
     game::core::Entity spawnPlayer(const game::network::Address& address, const sf::Vector2f& initialPosition = sf::Vector2f(0, 0));
+    
+    /**
+     * Respawn player at new position
+     * @param entityID Entity ID of player to respawn
+     * @param spawnPosition New spawn position
+     */
+    void respawnPlayer(game::core::Entity::ID entityID, const sf::Vector2f& spawnPosition);
+    
+    /**
+     * Find a safe spawn position (no collision)
+     * @return Safe spawn position
+     */
+    sf::Vector2f findSafeSpawnPosition();
     
     /**
      * Create snapshot packet from world state

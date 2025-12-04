@@ -3,14 +3,17 @@
 #include "../network/PacketTypes.hpp"
 #include "../core/systems/MovementSystem.hpp"
 #include "../core/components/HealthComponent.hpp"
+#include "../core/components/KillCounterComponent.hpp"
 #include "systems/CollisionSystem.hpp"
 #include "systems/ShootingSystem.hpp"
 #include "systems/ProjectileSystem.hpp"
+#include "CollisionHelper.hpp"
 #include <LDtkLoader/Project.hpp>
 #include <iostream>
 #include <thread>
 #include <cmath>
 #include <chrono>
+#include <random>
 
 namespace game::server {
 
@@ -151,23 +154,18 @@ void GameServer::processNetwork() {
     // Check for connection timeouts
     networkManager.checkTimeouts(config.connectionTimeout);
     
-    // Check for dead players (health <= 0) and disconnect them
+    // Check for dead players (health <= 0) and respawn them
     for (const auto& [addr, conn] : networkManager.getConnections()) {
         if (conn.connected && conn.entity.isValid()) {
             auto* healthComp = world.getComponent<game::core::components::HealthComponent>(conn.entity.id);
             if (healthComp && healthComp->isDead()) {
-                std::cout << "Player " << conn.entity.id << " is dead! Disconnecting..." << std::endl;
-                // Destroy entity
-                world.destroyEntity(conn.entity);
-                // Disconnect client
-                networkManager.handleDisconnect(addr);
-                // Send disconnect packet to client
-                game::network::Packet disconnectPacket(game::network::PacketType::DISCONNECT);
-                disconnectPacket.setSequence(1);
-                disconnectPacket.setTimestamp(static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::steady_clock::now().time_since_epoch()
-                ).count()));
-                networkManager.sendPacket(addr, disconnectPacket);
+                std::cout << "Player " << conn.entity.id << " is dead! Respawning..." << std::endl;
+                
+                // Find a safe spawn position
+                sf::Vector2f safeSpawnPos = findSafeSpawnPosition();
+                
+                // Respawn player at safe position
+                respawnPlayer(conn.entity.id, safeSpawnPos);
             }
         }
     }
@@ -176,9 +174,8 @@ void GameServer::processNetwork() {
     // Each client gets its own unique entity
     for (const auto& [addr, conn] : networkManager.getConnections()) {
         if (conn.connected && !conn.entity.isValid()) {
-            // New client, spawn entity at initial position from client
-            sf::Vector2f initialPos = networkManager.getClientInitialPosition(addr);
-            game::core::Entity entity = spawnPlayer(addr, initialPos);
+            // New client, spawn entity at random safe position (ignore initial position from client)
+            game::core::Entity entity = spawnPlayer(addr, sf::Vector2f(0, 0));  // initialPosition ignored
             
             networkManager.setClientEntity(addr, entity);
             networkManager.sendConnectAck(addr, entity.id);
@@ -207,20 +204,10 @@ game::core::Entity GameServer::spawnPlayer(const game::network::Address& address
     // Create entity
     game::core::Entity entity = world.createEntity();
     
-    // Add components
-    // Use initial position from client (LDtk player position) if provided, otherwise use default
-    float spawnX, spawnY;
-    if (initialPosition.x != 0 || initialPosition.y != 0) {
-        // Use client's initial position (LDtk player position)
-        spawnX = initialPosition.x;
-        spawnY = initialPosition.y;
-    } else {
-        // Default spawn position (fallback)
-        spawnX = 100.0f + (networkManager.getClientCount() * 50.0f);
-        spawnY = 100.0f;
-    }
+    // Always use random safe spawn position (ignore initialPosition from client)
+    sf::Vector2f safeSpawnPos = findSafeSpawnPosition();
     
-    game::core::components::PositionComponent posComp(spawnX, spawnY);
+    game::core::components::PositionComponent posComp(safeSpawnPos.x, safeSpawnPos.y);
     world.addComponent<game::core::components::PositionComponent>(entity.id, posComp);
     
     game::core::components::VelocityComponent velComp(0.0f, 0.0f);
@@ -234,6 +221,10 @@ game::core::Entity GameServer::spawnPlayer(const game::network::Address& address
     // Add HealthComponent (10 health)
     game::core::components::HealthComponent healthComp(10.0f);
     world.addComponent<game::core::components::HealthComponent>(entity.id, healthComp);
+    
+    // Add KillCounterComponent
+    game::core::components::KillCounterComponent killCounter;
+    world.addComponent<game::core::components::KillCounterComponent>(entity.id, killCounter);
     
     return entity;
 }
@@ -280,6 +271,15 @@ void GameServer::createSnapshotPacket(game::network::Packet& packet) {
             packet.write(health->maxHealth);
         } else {
             packet.write(static_cast<uint8_t>(0));  // No health component
+        }
+        
+        // Write KillCounterComponent (if exists)
+        const auto* killCounter = world.getComponent<game::core::components::KillCounterComponent>(entityID);
+        if (killCounter) {
+            packet.write(static_cast<uint8_t>(1));  // Has kill counter flag
+            packet.write(static_cast<int32_t>(killCounter->getKills()));
+        } else {
+            packet.write(static_cast<uint8_t>(0));  // No kill counter
         }
     }
 }
@@ -336,6 +336,60 @@ void GameServer::loadColliders() {
     }
     
     std::cout << "Server: Total colliders loaded: " << colliders.size() << std::endl;
+}
+
+void GameServer::respawnPlayer(game::core::Entity::ID entityID, const sf::Vector2f& spawnPosition) {
+    // Reset position
+    auto* posComp = world.getComponent<game::core::components::PositionComponent>(entityID);
+    if (posComp) {
+        posComp->position = spawnPosition;
+    }
+    
+    // Reset velocity
+    auto* velComp = world.getComponent<game::core::components::VelocityComponent>(entityID);
+    if (velComp) {
+        velComp->velocity = sf::Vector2f(0.0f, 0.0f);
+    }
+    
+    // Reset health
+    auto* healthComp = world.getComponent<game::core::components::HealthComponent>(entityID);
+    if (healthComp) {
+        healthComp->currentHealth = healthComp->maxHealth;
+    }
+    
+    std::cout << "Player " << entityID << " respawned at (" << spawnPosition.x << ", " << spawnPosition.y << ")" << std::endl;
+}
+
+sf::Vector2f GameServer::findSafeSpawnPosition() {
+    // Try to find a safe spawn position (no collision)
+    // Use random positions within map bounds
+    // Map bounds: approximate from colliders or use fixed bounds
+    // For now, use fixed bounds (can be improved with map size detection)
+    const float MAP_MIN_X = 50.0f;
+    const float MAP_MAX_X = 1450.0f;
+    const float MAP_MIN_Y = 50.0f;
+    const float MAP_MAX_Y = 1450.0f;
+    
+    const sf::Vector2f PLAYER_SIZE = {3.0f, 5.0f};
+    const int MAX_ATTEMPTS = 50;
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> distX(MAP_MIN_X, MAP_MAX_X);
+    std::uniform_real_distribution<float> distY(MAP_MIN_Y, MAP_MAX_Y);
+    
+    for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
+        sf::Vector2f candidatePos(distX(gen), distY(gen));
+        
+        // Check if position is safe (no collision)
+        if (!CollisionHelper::wouldCollideAt(candidatePos, PLAYER_SIZE, colliders)) {
+            return candidatePos;
+        }
+    }
+    
+    // Fallback: return a default position if no safe position found
+    std::cout << "WARNING: Could not find safe spawn position after " << MAX_ATTEMPTS << " attempts, using default" << std::endl;
+    return sf::Vector2f(100.0f, 100.0f);
 }
 
 } // namespace game::server

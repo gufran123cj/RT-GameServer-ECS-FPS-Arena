@@ -55,6 +55,11 @@ void GameController::updatePlayerPosition(GameModel& model) {
         model.playerIsDead = (model.playerHealth <= 0.0f);
     }
     
+    // Update kill count from server snapshot
+    if (it->second.hasKillCounter) {
+        model.playerKillCount = it->second.killCount;
+    }
+    
     sf::Vector2f oldPos = model.player.getPosition();
     model.player.setPosition(serverPos);
     

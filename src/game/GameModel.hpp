@@ -42,12 +42,15 @@ public:
     bool serverPositionInvalid = false;
     
     // Game state
-    bool shouldQuit = false;  // Set to true when player dies (health <= 0)
+    // Note: shouldQuit removed - players now respawn instead of quitting
     
     // Player health (from server snapshot)
     float playerHealth = 10.0f;
     float playerMaxHealth = 10.0f;
     bool playerIsDead = false;  // True when health <= 0
+    
+    // Player kill count (from server snapshot)
+    int playerKillCount = 0;
     
     /**
      * Initialize game from LDtk project

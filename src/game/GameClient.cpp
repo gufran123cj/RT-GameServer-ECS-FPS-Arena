@@ -46,6 +46,16 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
             }
         }
         
+        // Read KillCounterComponent (if exists)
+        uint8_t hasKillCounter = 0;
+        if (packet.read(hasKillCounter) && hasKillCounter == 1) {
+            int32_t killCount;
+            if (packet.read(killCount)) {
+                entity.killCount = killCount;
+                entity.hasKillCounter = true;
+            }
+        }
+        
         remoteEntities[entityID] = entity;
     }
 }

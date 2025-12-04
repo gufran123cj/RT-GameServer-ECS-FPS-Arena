@@ -6,6 +6,7 @@
 #include "../../core/components/ProjectileComponent.hpp"
 #include "../../core/components/LifetimeComponent.hpp"
 #include "../../core/components/HealthComponent.hpp"
+#include "../../core/components/KillCounterComponent.hpp"
 #include "../CollisionHelper.hpp"
 #include <iostream>
 
@@ -107,10 +108,22 @@ bool ProjectileSystem::shouldDestroyProjectile(
                 
                 std::cout << "Player " << playerID << " hit! Health: " << playerHealth->currentHealth << "/" << playerHealth->maxHealth << std::endl;
                 
-                // If player is dead, mark for disconnect
+                // If player is dead, give kill to projectile owner
                 if (!stillAlive) {
                     std::cout << "Player " << playerID << " is dead! (Health: 0)" << std::endl;
-                    // Player will be disconnected in GameServer::processNetwork()
+                    
+                    // Give kill to projectile owner
+                    auto* ownerKillCounter = world.getComponent<game::core::components::KillCounterComponent>(projComp->ownerID);
+                    if (ownerKillCounter) {
+                        ownerKillCounter->addKill();
+                        std::cout << "Player " << projComp->ownerID << " got a kill! Total kills: " << ownerKillCounter->getKills() << std::endl;
+                    } else {
+                        // Add KillCounterComponent if it doesn't exist
+                        game::core::components::KillCounterComponent killCounter;
+                        killCounter.addKill();
+                        world.addComponent<game::core::components::KillCounterComponent>(projComp->ownerID, killCounter);
+                        std::cout << "Player " << projComp->ownerID << " got a kill! Total kills: 1" << std::endl;
+                    }
                 }
                 
                 return true;  // Destroy projectile after hitting player
