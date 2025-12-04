@@ -42,6 +42,7 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
 void GameClient::onDisconnect() {
     remoteEntities.clear();
     myEntityID = 0;
+    std::cout << "Disconnected from server (player died or server disconnected)" << std::endl;
 }
 
 } // namespace game::client

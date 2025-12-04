@@ -5,7 +5,9 @@
 #include "../../core/components/SpriteComponent.hpp"
 #include "../../core/components/ProjectileComponent.hpp"
 #include "../../core/components/LifetimeComponent.hpp"
+#include "../../core/components/HealthComponent.hpp"
 #include "../CollisionHelper.hpp"
+#include <iostream>
 
 namespace game::server::systems {
 
@@ -67,8 +69,54 @@ bool ProjectileSystem::shouldDestroyProjectile(
         return true;  // Collision with wall
     }
     
-    // TODO: Check player collision (for future damage system)
-    // For now, projectiles only collide with walls
+    // Check player collision (damage system)
+    auto* projComp = world.getComponent<game::core::components::ProjectileComponent>(entityID);
+    if (projComp) {
+        // Get all players (entities with HealthComponent)
+        auto players = world.getEntitiesWith<
+            game::core::components::PositionComponent,
+            game::core::components::SpriteComponent,
+            game::core::components::HealthComponent
+        >();
+        
+        for (game::core::Entity::ID playerID : players) {
+            // Skip if projectile owner is the same as player (can't hit yourself)
+            if (playerID == projComp->ownerID) {
+                continue;
+            }
+            
+            // Check collision with player
+            auto* playerPos = world.getComponent<game::core::components::PositionComponent>(playerID);
+            auto* playerSprite = world.getComponent<game::core::components::SpriteComponent>(playerID);
+            auto* playerHealth = world.getComponent<game::core::components::HealthComponent>(playerID);
+            
+            if (!playerPos || !playerSprite || !playerHealth) {
+                continue;
+            }
+            
+            // Check if projectile collides with player
+            // Use CollisionHelper to get proper player collider (bottom half)
+            sf::FloatRect playerCollider = CollisionHelper::getPlayerCollider(playerPos->position, playerSprite->size);
+            
+            // Projectile rect (simple AABB, origin at top-left)
+            sf::FloatRect projRect(pos->position.x, pos->position.y, sprite->size.x, sprite->size.y);
+            
+            if (projRect.intersects(playerCollider)) {
+                // Hit player! Apply damage
+                bool stillAlive = playerHealth->takeDamage(projComp->damage);
+                
+                std::cout << "Player " << playerID << " hit! Health: " << playerHealth->currentHealth << "/" << playerHealth->maxHealth << std::endl;
+                
+                // If player is dead, mark for disconnect
+                if (!stillAlive) {
+                    std::cout << "Player " << playerID << " is dead! (Health: 0)" << std::endl;
+                    // Player will be disconnected in GameServer::processNetwork()
+                }
+                
+                return true;  // Destroy projectile after hitting player
+            }
+        }
+    }
     
     return false;  // Keep projectile alive
 }

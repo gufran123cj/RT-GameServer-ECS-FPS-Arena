@@ -41,6 +41,9 @@ public:
     bool hasLastValidPosition = false;
     bool serverPositionInvalid = false;
     
+    // Game state
+    bool shouldQuit = false;  // Set to true when player dies (health <= 0)
+    
     /**
      * Initialize game from LDtk project
      */

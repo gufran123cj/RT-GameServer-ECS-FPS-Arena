@@ -82,7 +82,7 @@ game::core::Entity ShootingSystem::spawnProjectile(
     // Add ProjectileComponent
     game::core::components::ProjectileComponent projComp(
         ownerID,
-        10.0f,  // damage
+        1.0f,  // damage (1 damage per hit, 10 hits to kill)
         game::client::Constants::PROJECTILE_SPEED,
         direction
     );

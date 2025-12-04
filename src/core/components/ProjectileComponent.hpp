@@ -20,7 +20,7 @@ struct ProjectileComponent {
     
     ProjectileComponent() 
         : ownerID(game::INVALID_ENTITY)
-        , damage(10.0f)
+        , damage(1.0f)  // 1 damage per hit (10 hits to kill with 10 health)
         , speed(300.0f)
         , direction(0.0f, 0.0f)
     {}

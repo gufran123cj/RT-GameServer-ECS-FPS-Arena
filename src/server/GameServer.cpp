@@ -2,6 +2,7 @@
 #include "../network/Packet.hpp"
 #include "../network/PacketTypes.hpp"
 #include "../core/systems/MovementSystem.hpp"
+#include "../core/components/HealthComponent.hpp"
 #include "systems/CollisionSystem.hpp"
 #include "systems/ShootingSystem.hpp"
 #include "systems/ProjectileSystem.hpp"
@@ -9,6 +10,7 @@
 #include <iostream>
 #include <thread>
 #include <cmath>
+#include <chrono>
 
 namespace game::server {
 
@@ -149,6 +151,27 @@ void GameServer::processNetwork() {
     // Check for connection timeouts
     networkManager.checkTimeouts(config.connectionTimeout);
     
+    // Check for dead players (health <= 0) and disconnect them
+    for (const auto& [addr, conn] : networkManager.getConnections()) {
+        if (conn.connected && conn.entity.isValid()) {
+            auto* healthComp = world.getComponent<game::core::components::HealthComponent>(conn.entity.id);
+            if (healthComp && healthComp->isDead()) {
+                std::cout << "Player " << conn.entity.id << " is dead! Disconnecting..." << std::endl;
+                // Destroy entity
+                world.destroyEntity(conn.entity);
+                // Disconnect client
+                networkManager.handleDisconnect(addr);
+                // Send disconnect packet to client
+                game::network::Packet disconnectPacket(game::network::PacketType::DISCONNECT);
+                disconnectPacket.setSequence(1);
+                disconnectPacket.setTimestamp(static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()
+                ).count()));
+                networkManager.sendPacket(addr, disconnectPacket);
+            }
+        }
+    }
+    
     // CRITICAL: Handle new connections and spawn entities
     // Each client gets its own unique entity
     for (const auto& [addr, conn] : networkManager.getConnections()) {
@@ -207,6 +230,10 @@ game::core::Entity GameServer::spawnPlayer(const game::network::Address& address
     const sf::Vector2f PLAYER_SIZE = {3.0f, 5.0f};
     game::core::components::SpriteComponent spriteComp(PLAYER_SIZE, sf::Color::Green);
     world.addComponent<game::core::components::SpriteComponent>(entity.id, spriteComp);
+    
+    // Add HealthComponent (10 health)
+    game::core::components::HealthComponent healthComp(10.0f);
+    world.addComponent<game::core::components::HealthComponent>(entity.id, healthComp);
     
     return entity;
 }

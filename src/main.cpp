@@ -79,6 +79,14 @@ int main() {
         // Process network packets
         GameController::processNetwork(model);
         
+        // Check if player died (disconnected by server)
+        if (model.connectedToServer && !model.networkClient.isConnected()) {
+            std::cout << "Player died! Quitting game..." << std::endl;
+            model.shouldQuit = true;
+            window.close();
+            break;
+        }
+        
         // Send heartbeat periodically
         if (model.connectedToServer) {
             auto now = std::chrono::steady_clock::now();
