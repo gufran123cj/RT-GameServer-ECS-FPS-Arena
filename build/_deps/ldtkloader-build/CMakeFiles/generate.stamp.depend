@@ -1,8 +1,0 @@
-# CMake generation dependency list for this directory.
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-src/CMakeLists.txt
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-src/cmake/LDtkLoaderConfig.cmake.in
-C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-src/src/Version.hpp.in
-D:/CMake/share/cmake-4.2/Modules/BasicConfigVersion-SameMinorVersion.cmake.in
-D:/CMake/share/cmake-4.2/Modules/CMakePackageConfigHelpers.cmake
-D:/CMake/share/cmake-4.2/Modules/GNUInstallDirs.cmake
-D:/CMake/share/cmake-4.2/Modules/WriteBasicConfigVersionFile.cmake

@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/cmake_install.cmake",
-		"C:/Users/gufra/Downloads/LDtk-SFML-Game-master/LDtk-SFML-Game-master/build/_deps/ldtkloader-build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
