@@ -35,6 +35,17 @@ void GameClient::onSnapshot(game::network::Packet& packet) {
         entity.size = sf::Vector2f(sizeX, sizeY);
         entity.color = sf::Color(r, g, b, a);
         
+        // Read HealthComponent (if exists)
+        uint8_t hasHealth = 0;
+        if (packet.read(hasHealth) && hasHealth == 1) {
+            float currentHealth, maxHealth;
+            if (packet.read(currentHealth) && packet.read(maxHealth)) {
+                entity.health = currentHealth;
+                entity.maxHealth = maxHealth;
+                entity.hasHealth = true;
+            }
+        }
+        
         remoteEntities[entityID] = entity;
     }
 }

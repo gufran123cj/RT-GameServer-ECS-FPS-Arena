@@ -94,6 +94,8 @@ set(SERVER_SOURCES
     src/server/ServerNetworkManager.cpp
     src/server/CollisionHelper.cpp
     src/server/systems/CollisionSystem.cpp
+    src/server/systems/ShootingSystem.cpp
+    src/server/systems/ProjectileSystem.cpp
 )
 
 add_executable(gameserver

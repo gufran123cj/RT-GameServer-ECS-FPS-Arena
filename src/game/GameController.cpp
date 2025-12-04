@@ -48,6 +48,13 @@ void GameController::updatePlayerPosition(GameModel& model) {
     
     sf::Vector2f serverPos = it->second.position;
     
+    // Update health from server snapshot
+    if (it->second.hasHealth) {
+        model.playerHealth = it->second.health;
+        model.playerMaxHealth = it->second.maxHealth;
+        model.playerIsDead = (model.playerHealth <= 0.0f);
+    }
+    
     sf::Vector2f oldPos = model.player.getPosition();
     model.player.setPosition(serverPos);
     

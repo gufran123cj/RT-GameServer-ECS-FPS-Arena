@@ -76,6 +76,16 @@ void GameView::render(sf::RenderTarget& target, GameModel& model) {
         std::cerr << "ERROR in GameView::render: " << ex.what() << std::endl;
         throw;
     }
+    
+    // Render HUD (health bar, etc.) - always on top, in screen coordinates
+    sf::View defaultView = target.getDefaultView();
+    target.setView(defaultView);
+    
+    renderHealthBar(target, model);
+    
+    if (model.playerIsDead) {
+        renderDeathMessage(target, model);
+    }
 }
 
 void GameView::updateCamera(GameModel& model) {
@@ -105,6 +115,87 @@ void GameView::updateCamera(GameModel& model) {
             model.camera.setCenter(cam_pos.x, model.camera_bounds.top + model.camera_bounds.height - cam_size.y / 2);
         }
     }
+}
+
+void GameView::renderHealthBar(sf::RenderTarget& target, const GameModel& model) {
+    if (!model.connectedToServer) {
+        return;  // Don't show health bar if not connected
+    }
+    
+    const float barWidth = 200.0f;
+    const float barHeight = 20.0f;
+    const float barX = 10.0f;
+    const float barY = 10.0f;
+    const float borderThickness = 2.0f;
+    
+    // Health percentage
+    float healthPercent = (model.playerMaxHealth > 0.0f) ? 
+        (model.playerHealth / model.playerMaxHealth) : 0.0f;
+    if (healthPercent < 0.0f) healthPercent = 0.0f;
+    if (healthPercent > 1.0f) healthPercent = 1.0f;
+    
+    // Background (black border)
+    sf::RectangleShape background;
+    background.setSize(sf::Vector2f(barWidth + borderThickness * 2, barHeight + borderThickness * 2));
+    background.setPosition(barX - borderThickness, barY - borderThickness);
+    background.setFillColor(sf::Color::Black);
+    target.draw(background);
+    
+    // Health bar background (red/dark)
+    sf::RectangleShape healthBarBg;
+    healthBarBg.setSize(sf::Vector2f(barWidth, barHeight));
+    healthBarBg.setPosition(barX, barY);
+    healthBarBg.setFillColor(sf::Color(100, 0, 0, 255));  // Dark red
+    target.draw(healthBarBg);
+    
+    // Health bar fill (green to red based on health)
+    if (healthPercent > 0.0f) {
+        sf::RectangleShape healthBar;
+        healthBar.setSize(sf::Vector2f(barWidth * healthPercent, barHeight));
+        healthBar.setPosition(barX, barY);
+        
+        // Color interpolation: green (100%) -> yellow (50%) -> red (0%)
+        if (healthPercent > 0.5f) {
+            // Green to yellow
+            float t = (healthPercent - 0.5f) * 2.0f;  // 0.5-1.0 -> 0.0-1.0
+            healthBar.setFillColor(sf::Color(
+                static_cast<uint8_t>(255 * (1.0f - t)),  // R: 0 -> 255
+                255,  // G: always 255
+                0     // B: 0
+            ));
+        } else {
+            // Yellow to red
+            float t = healthPercent * 2.0f;  // 0.0-0.5 -> 0.0-1.0
+            healthBar.setFillColor(sf::Color(
+                255,  // R: always 255
+                static_cast<uint8_t>(255 * t),  // G: 255 -> 0
+                0     // B: 0
+            ));
+        }
+        
+        target.draw(healthBar);
+    }
+    
+    // Health text (optional - can be added later with font)
+    // For now, just the bar is enough
+}
+
+void GameView::renderDeathMessage(sf::RenderTarget& target, const GameModel& model) {
+    if (!model.playerIsDead) {
+        return;
+    }
+    
+    // Dark overlay (semi-transparent black)
+    sf::RectangleShape overlay;
+    sf::Vector2u windowSize = target.getSize();
+    overlay.setSize(sf::Vector2f(static_cast<float>(windowSize.x), static_cast<float>(windowSize.y)));
+    overlay.setPosition(0, 0);
+    overlay.setFillColor(sf::Color(0, 0, 0, 180));  // Semi-transparent black
+    target.draw(overlay);
+    
+    // "YOU DIED" text would go here if we had a font
+    // For now, we'll use a simple rectangle as placeholder
+    // TODO: Add font rendering for "YOU DIED" text
 }
 
 } // namespace game::client

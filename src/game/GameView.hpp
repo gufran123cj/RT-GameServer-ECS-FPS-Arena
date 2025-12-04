@@ -22,6 +22,16 @@ public:
      * Update camera to follow player
      */
     static void updateCamera(GameModel& model);
+    
+    /**
+     * Render health bar (HUD overlay)
+     */
+    static void renderHealthBar(sf::RenderTarget& target, const GameModel& model);
+    
+    /**
+     * Render "YOU DIED" message
+     */
+    static void renderDeathMessage(sf::RenderTarget& target, const GameModel& model);
 };
 
 } // namespace game::client

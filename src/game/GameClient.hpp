@@ -25,6 +25,9 @@ public:
         sf::Vector2f position;
         sf::Vector2f size;
         sf::Color color;
+        float health = 10.0f;      // Current health
+        float maxHealth = 10.0f;  // Maximum health
+        bool hasHealth = false;   // Whether entity has health component
     };
     
     std::map<game::core::Entity::ID, RemoteEntity> remoteEntities;

@@ -271,6 +271,16 @@ void GameServer::createSnapshotPacket(game::network::Packet& packet) {
             packet.write(sprite->color.b);
             packet.write(sprite->color.a);
         }
+        
+        // Write HealthComponent (if exists)
+        const auto* health = world.getComponent<game::core::components::HealthComponent>(entityID);
+        if (health) {
+            packet.write(static_cast<uint8_t>(1));  // Has health component flag
+            packet.write(health->currentHealth);
+            packet.write(health->maxHealth);
+        } else {
+            packet.write(static_cast<uint8_t>(0));  // No health component
+        }
     }
 }
 
