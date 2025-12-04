@@ -133,6 +133,27 @@ bool ClientNetworkManager::sendPacket(const game::network::Packet& packet) {
     return status == sf::Socket::Status::Done;
 }
 
+bool ClientNetworkManager::sendShoot(const sf::Vector2f& targetPosition) {
+    if (!connected) {
+        return false;
+    }
+    
+    game::network::Packet packet(game::network::PacketType::SHOOT);
+    packet.setSequence(nextSequenceNumber++);
+    packet.setTimestamp(static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()
+    ).count()));
+    
+    // Write target position (mouse world coordinates)
+    packet.write(targetPosition.x);
+    packet.write(targetPosition.y);
+    
+    // Write player entity ID (for server validation)
+    packet.write(entityID);
+    
+    return sendPacket(packet);
+}
+
 void ClientNetworkManager::handlePacket(const game::network::Packet& packet) {
     game::network::PacketType type = packet.getType();
     

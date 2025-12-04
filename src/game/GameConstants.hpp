@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/System/Vector2.hpp>
+#include <SFML/Graphics/Color.hpp>
 
 namespace game::client {
 
@@ -31,6 +32,13 @@ namespace Constants {
     
     // Network settings
     constexpr float HEARTBEAT_INTERVAL = 1.0f;  // seconds
+    
+    // Shooting/Projectile settings
+    constexpr float PROJECTILE_SPEED = 300.0f;  // pixels per second
+    const sf::Vector2f PROJECTILE_SIZE = {2.0f, 2.0f};  // width, height
+    constexpr float PROJECTILE_LIFETIME = 5.0f;  // seconds
+    constexpr float PROJECTILE_SPAWN_OFFSET = 10.0f;  // pixels ahead of player
+    const sf::Color PROJECTILE_COLOR = sf::Color::Yellow;
 }
 
 } // namespace game::client

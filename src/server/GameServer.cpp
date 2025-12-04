@@ -3,6 +3,8 @@
 #include "../network/PacketTypes.hpp"
 #include "../core/systems/MovementSystem.hpp"
 #include "systems/CollisionSystem.hpp"
+#include "systems/ShootingSystem.hpp"
+#include "systems/ProjectileSystem.hpp"
 #include <LDtkLoader/Project.hpp>
 #include <iostream>
 #include <thread>
@@ -31,9 +33,14 @@ bool GameServer::initialize(const ServerConfig& cfg) {
     loadColliders();
     
     // Initialize world and register systems
-    // IMPORTANT: CollisionSystem must run BEFORE MovementSystem
-    // CollisionSystem priority: 50, MovementSystem priority: 100
+    // IMPORTANT: System execution order (by priority):
+    // - ShootingSystem: 10 (processes SHOOT packets, spawns projectiles)
+    // - CollisionSystem: 50 (checks collisions before movement)
+    // - ProjectileSystem: 75 (updates projectile lifetime, checks collisions)
+    // - MovementSystem: 100 (updates positions based on velocity)
+    world.registerSystem(std::make_unique<systems::ShootingSystem>(networkManager));
     world.registerSystem(std::make_unique<systems::CollisionSystem>(colliders));
+    world.registerSystem(std::make_unique<systems::ProjectileSystem>(colliders));
     world.registerSystem(std::make_unique<game::core::systems::MovementSystem>());
     world.initialize();
     

@@ -68,6 +68,12 @@ int main() {
                     window.close();
                 }
             }
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    // Handle shooting (mouse click)
+                    GameController::handleShoot(model, window, model.camera);
+                }
+            }
         }
 
         // Process network packets

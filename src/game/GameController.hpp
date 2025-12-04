@@ -42,6 +42,13 @@ public:
      * Check if movement would cause collision
      */
     static bool wouldCollide(const GameModel& model, float velX, float velY);
+    
+    /**
+     * Handle mouse click shooting input
+     * @param window The render window (for mouse position)
+     * @param camera The camera view (for world position conversion)
+     */
+    static void handleShoot(GameModel& model, const sf::RenderWindow& window, const sf::View& camera);
 };
 
 } // namespace game::client

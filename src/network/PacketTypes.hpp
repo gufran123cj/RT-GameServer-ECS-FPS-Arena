@@ -16,6 +16,7 @@ enum class PacketType : uint8_t {
     HEARTBEAT = 3,      // Client ↔ Server: Bağlantı canlı tutma
     INPUT = 4,          // Client → Server: Oyuncu input'u
     SNAPSHOT = 5,       // Server → Client: Oyun durumu snapshot'ı
+    SHOOT = 6,          // Client → Server: Shooting input (mouse click)
     INVALID = 255
 };
 

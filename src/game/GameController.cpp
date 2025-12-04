@@ -172,5 +172,26 @@ bool GameController::wouldCollide(const GameModel& model, float velX, float velY
     return PlayerCollision::wouldCollideAt(nextPos, Constants::PLAYER_SIZE, model.colliders);
 }
 
+void GameController::handleShoot(GameModel& model, const sf::RenderWindow& window, const sf::View& camera) {
+    // Only process if window has focus and connected to server
+    if (!window.hasFocus() || !model.connectedToServer || !model.networkClient.isConnected()) {
+        return;
+    }
+    
+    // Check if we have a valid entity ID
+    if (model.networkClient.myEntityID == game::INVALID_ENTITY) {
+        return;
+    }
+    
+    // Get mouse position in screen coordinates
+    sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+    
+    // Convert to world coordinates using camera
+    sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePixel, camera);
+    
+    // Send SHOOT packet to server
+    model.networkClient.sendShoot(mouseWorld);
+}
+
 } // namespace game::client
 

@@ -59,6 +59,12 @@ public:
     bool sendPacket(const game::network::Packet& packet);
     
     /**
+     * Send SHOOT packet to server
+     * @param targetPosition Mouse world position (target for projectile)
+     */
+    bool sendShoot(const sf::Vector2f& targetPosition);
+    
+    /**
      * Check if connected
      */
     bool isConnected() const { return connected; }

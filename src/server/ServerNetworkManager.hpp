@@ -133,6 +133,22 @@ public:
     LastInput getLastInput(const game::network::Address& address) const;
     
     /**
+     * Shoot event data (from SHOOT packet)
+     */
+    struct ShootEvent {
+        game::network::Address from;
+        sf::Vector2f targetPosition;  // Mouse world position
+        game::EntityID playerID;        // Client's entity ID (for validation)
+        bool valid = false;
+    };
+    
+    /**
+     * Get all shoot events from this frame (for ShootingSystem)
+     * Returns vector of (address, shootEvent) pairs
+     */
+    std::vector<std::pair<game::network::Address, ShootEvent>> getShootEvents() const;
+    
+    /**
      * Send connect acknowledgment
      */
     void sendConnectAck(const game::network::Address& address, game::core::Entity::ID entityID);
@@ -142,6 +158,7 @@ private:
     std::unordered_map<game::network::Address, ClientConnection, game::network::Address::Hash> connections;
     mutable std::unordered_map<game::network::Address, sf::Vector2f, game::network::Address::Hash> clientInitialPositions;
     mutable std::unordered_map<game::network::Address, LastInput, game::network::Address::Hash> lastInputPackets;
+    mutable std::unordered_map<game::network::Address, ShootEvent, game::network::Address::Hash> shootEvents;
     uint32_t nextSequenceNumber;
     
     /**

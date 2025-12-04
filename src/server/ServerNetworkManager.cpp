@@ -3,6 +3,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <iostream>
 #include <algorithm>
+#include <vector>
 
 namespace game::server {
 
@@ -98,6 +99,23 @@ void ServerNetworkManager::handlePacket(const game::network::Address& from, cons
         
         case game::network::PacketType::INPUT: {
             lastInputPackets[from] = {from, packet, true};
+            break;
+        }
+        
+        case game::network::PacketType::SHOOT: {
+            // Read shoot data from packet
+            game::network::Packet& nonConstPacket = const_cast<game::network::Packet&>(packet);
+            nonConstPacket.resetRead();
+            float targetX = 0, targetY = 0;
+            game::EntityID playerID = game::INVALID_ENTITY;
+            if (nonConstPacket.read(targetX) && nonConstPacket.read(targetY) && nonConstPacket.read(playerID)) {
+                ShootEvent event;
+                event.from = from;
+                event.targetPosition = sf::Vector2f(targetX, targetY);
+                event.playerID = playerID;
+                event.valid = true;
+                shootEvents[from] = event;
+            }
             break;
         }
         
@@ -213,6 +231,19 @@ void ServerNetworkManager::sendConnectAck(const game::network::Address& address,
     
     packet.write(entityID);
     sendPacket(address, packet);
+}
+
+std::vector<std::pair<game::network::Address, ServerNetworkManager::ShootEvent>> ServerNetworkManager::getShootEvents() const {
+    std::vector<std::pair<game::network::Address, ShootEvent>> events;
+    
+    for (auto& [addr, event] : shootEvents) {
+        if (event.valid) {
+            events.emplace_back(addr, event);
+            event.valid = false;  // Mark as consumed
+        }
+    }
+    
+    return events;
 }
 
 } // namespace game::server
